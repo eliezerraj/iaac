@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS 
+
+Parameters:
+  SubnetDBGroupGroupName:
+    Type: String
+    Default: RDS-SN-DB
+  RDSPostgreName:
+    Type: String
+    Default: DB_PWBI_PRD
+  RDSDBName:
+    Type: String
+    Default: db_pwbi_prd
+  InstanceName:
+    Type: String
+    Default: dbpowerbi
+  MasterUserName:
+    Type: String
+    Default: postgre
+  MasterUserPasswordName:
+    Type: String
+    Default: YWRtaW4K
+
+Resources:
+  SubnetDBGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: Subnet for RDS DataBases
+      SubnetIds:
+        - !ImportValue SubnetDBA
+        - !ImportValue SubnetDBB
+        - !ImportValue SubnetDBC
+      Tags:
+        - Key: Name
+          Value: !Ref SubnetDBGroupGroupName
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Tags:
+      - Key: Name
+        Value: DB-PARAM-RDS-PRD
+      Description: Database Parameter Group
+      Family: postgres13
+      Parameters:
+        shared_preload_libraries: pg_stat_statements
+
+  RDSPostgre:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      DBName: !Ref RDSDBName
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 7
+      DBInstanceIdentifier: !Ref InstanceName
+      DBSubnetGroupName: !Ref SubnetDBGroup
+      Engine: postgres
+      EngineVersion: '13.7'
+      MasterUsername: !Ref MasterUserName
+      MasterUserPassword: !Ref MasterUserPasswordName
+      MultiAZ: false
+      Port: 5432
+      PubliclyAccessible: false
+      StorageType: gp2
+      DBParameterGroupName: !Ref DBParameterGroup
+      VPCSecurityGroups: 
+        - !ImportValue SecurityGroupRDS
+      Tags:
+        - Key: Name
+          Value: !Ref RDSPostgreName

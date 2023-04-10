@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ec2 bastion template
+
+Parameters:
+  EC2BastionName:
+    Type: String
+    Default: ec2-bastion
+  ElasticIpBastionName:
+    Type: String
+    Default: eip-bastion
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.nano
+  AMI:
+    Type: String
+    Default: ami-0895310529c333a0c
+  KeyPairEc2:
+    Type: String
+    Default: ec2-key-pair
+  AvailabilityZoneName:
+    Type: String
+    Default: sa-east-1a
+
+Resources:
+  EC2Bastion:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref InstanceTypeParameter
+      AvailabilityZone: !Ref AvailabilityZoneName
+      ImageId: !Ref AMI
+      KeyName: !Ref KeyPairEc2
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: 'true'
+          DeleteOnTermination: 'true'
+          DeviceIndex: '0'
+          SubnetId: !ImportValue SubnetPubA
+          GroupSet:
+            - !ImportValue SecurityGroupIngress
+            - !ImportValue SecurityGroupPWBSource
+      Tags:
+        - Key: Name
+          Value: !Ref EC2BastionName
+
+  ElasticIpBastion:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      InstanceId: !Ref EC2Bastion
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Ref ElasticIpBastionName
+
+Outputs:
+  ElasticIpBastion:
+    Value: !Ref ElasticIpBastion
+    Export:
+      Name: eip-bastion
