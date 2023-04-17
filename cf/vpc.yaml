@@ -564,3 +564,151 @@ Resources:
     Properties:
       SubnetId: !Ref SubnetAttB
       NetworkAclId: !Ref NetworkAclAtt
+
+# ---------------------------------
+
+  SubnetPrivC:
+      Type: AWS::EC2::Subnet
+      DependsOn: IPv6CidrBlock
+      Properties:
+        VpcId: !Ref VPC
+        AvailabilityZone: !Select [ 0, !GetAZs '' ]
+        CidrBlock: !Ref PRIVCCIDR
+        AssignIpv6AddressOnCreation: !If [EnableIPv6, true, !Ref AWS::NoValue]
+        Ipv6CidrBlock:
+          Fn::If:
+            - EnableIPv6          
+            - !Select [ 2, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 16, 64 ]]
+            - !Ref AWS::NoValue
+        Tags:
+          - Key: Name
+            Value: !Sub "sub-${AWS::StackName}-priv-c"
+  SubnetPubC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: !If [PublicIPv4, true, false]
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PUBCCIDR
+      Ipv6CidrBlock:
+        Fn::If:
+          - EnableIPv6          
+          - !Select [ 3, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 16, 64 ]]
+          - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub "sub-${AWS::StackName}-pub-c"
+  SubnetRestC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: !If [PublicIPv4, true, false]
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref RESTRCCIDR
+      Ipv6CidrBlock:
+        Fn::If:
+          - EnableIPv6          
+          - !Select [ 3, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 16, 64 ]]
+          - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub "sub-${AWS::StackName}-restrict-c"
+  SubnetAttC:
+    Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
+    Properties:
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: !If [PublicIPv4, true, false]
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref ATTCCIDR
+      Ipv6CidrBlock:
+        Fn::If:
+          - EnableIPv6          
+          - !Select [ 3, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 16, 64 ]]
+          - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub "sub-${AWS::StackName}-att-c"
+
+  RTPRIVC:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-rt-priv-C"
+  RTPUBC:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-rt-pub-C"
+  RTRESTC:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-rt-restrict-C"
+  RTATTC:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-rt-att-C"
+
+  DefaultRouteIPv4PUBC:
+    Type : AWS::EC2::Route
+    DependsOn:
+      - IGW
+      - IGWAttachments
+    Condition: PublicIPv4
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref RTPUBC
+  RTAssociationPRIVC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPrivC
+      RouteTableId: !Ref RTPRIVC
+  RTAssociationPUBC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPubC
+      RouteTableId: !Ref RTPUBC
+  RTAssociationRESTRC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetRestC
+      RouteTableId: !Ref RTRESTC
+  RTAssociationAttC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAttC
+      RouteTableId: !Ref RTATTC
+
+  SubnetNetworkAclAssociationPubC:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPubC
+      NetworkAclId: !Ref NetworkAclPublic
+  SubnetNetworkAclAssociationPrivC:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivC
+      NetworkAclId: !Ref NetworkAclPrivate
+  SubnetNetworkAclAssociationRestrC:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref SubnetRestC
+      NetworkAclId: !Ref NetworkAclRestrict
+  SubnetNetworkAclAssociationAttC:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref SubnetAttC
+      NetworkAclId: !Ref NetworkAclAtt
