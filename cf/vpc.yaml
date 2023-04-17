@@ -474,7 +474,7 @@ Resources:
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: !If [PublicIPv4, true, false]
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      CidrBlock: !Ref ATTACIDR
+      CidrBlock: !Ref ATTBCIDR
       Ipv6CidrBlock:
         Fn::If:
           - EnableIPv6          
