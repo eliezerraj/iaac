@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: SSM endpoints
+
+Parameters:
+  VPC:
+    Type: String
+    Default: vpc-041886343ee9309c0
+  SubnetPrivA:
+    Type: String
+    Default: subnet-0c573d6da7426c4ca
+  SubnetPrivB:
+    Type: String
+    Default: subnet-07105e3417b44b644
+  SubnetPrivC:
+    Type: String
+    Default: subnet-00a032aecd95c7223
+  SecurityGroupIngress:
+    Type: String
+    Default: sg-0f9182da18d3a727f
+
+Resources:
+  ssminterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: "True"
+      SubnetIds:
+        - !Ref SubnetPrivA
+        - !Ref SubnetPrivB
+        - !Ref SubnetPrivC
+      SecurityGroupIds:
+        - !Ref SecurityGroupIngress
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPC
+  ssmec2messagesinterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: "True"
+      SubnetIds:
+        - !Ref SubnetPrivA
+        - !Ref SubnetPrivB
+        - !Ref SubnetPrivC
+      SecurityGroupIds:
+        - !Ref SecurityGroupIngress
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPC
+  ssmmessagesinterfaceendpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: "Interface"
+      PrivateDnsEnabled: "True"
+      SubnetIds:
+        - !Ref SubnetPrivA
+        - !Ref SubnetPrivB
+        - !Ref SubnetPrivC
+      SecurityGroupIds:
+        - !Ref SecurityGroupIngress
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPC

@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 private template
+
+Parameters:
+  EC2Name:
+    Type: String
+    Default: ec2-name
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.nano
+  AMI:
+    Type: String
+    Default: ami-0f4edc2aa6fd88c6e
+  KeyPairEc2:
+    Type: String
+    Default: ec2-key-pair-eliezer
+  AvailabilityZoneName:
+    Type: String
+    Default: us-east-2a
+  Ec2Subnet:
+    Type: String
+    Default: subnet-0c573d6da7426c4ca
+  SecurityGroupIngress:
+    Type: String
+    Default: sg-0f9182da18d3a727f
+
+Resources:
+  EC2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref InstanceTypeParameter
+      AvailabilityZone: !Ref AvailabilityZoneName
+      ImageId: !Ref AMI
+      KeyName: !Ref KeyPairEc2
+      IamInstanceProfile: !Ref Ec2InstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: 'true'
+          DeleteOnTermination: 'true'
+          DeviceIndex: '0'
+          SubnetId: !Ref Ec2Subnet
+          GroupSet:
+            - !Ref SecurityGroupIngress
+      Tags:
+        - Key: Name
+          Value: !Ref EC2Name
+
+  Ec2Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub "${EC2Name}--instance-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:DescribeAssociation'
+                  - 'ssm:GetDeployablePatchSnapshotForInstance'
+                  - 'ssm:GetDocument'
+                  - 'ssm:DescribeDocument'
+                  - 'ssm:GetManifest'
+                  - 'ssm:GetParameter'
+                  - 'ssm:GetParameters'
+                  - 'ssm:ListAssociations'
+                  - 'ssm:ListInstanceAssociations'
+                  - 'ssm:PutInventory'
+                  - 'ssm:PutComplianceItems'
+                  - 'ssm:PutConfigurePackageResult'
+                  - 'ssm:UpdateAssociationStatus'
+                  - 'ssm:UpdateInstanceAssociationStatus'
+                  - 'ssm:UpdateInstanceInformation'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ssmmessages:CreateControlChannel'
+                  - 'ssmmessages:CreateDataChannel'
+                  - 'ssmmessages:OpenControlChannel'
+                  - 'ssmmessages:OpenDataChannel'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ec2messages:AcknowledgeMessage'
+                  - 'ec2messages:DeleteMessage'
+                  - 'ec2messages:FailMessage'
+                  - 'ec2messages:GetEndpoint'
+                  - 'ec2messages:GetMessages'
+                  - 'ec2messages:SendReply'
+                Resource: '*'
+
+  Ec2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: !Sub "${EC2Name}-instance-profile"
+      Path: /
+      Roles:
+        - !Ref Ec2Role
