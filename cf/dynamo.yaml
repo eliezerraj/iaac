@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create DynamoDB"
+
+Parameters:
+  DynamoDBTableName:
+    Type: String
+    Default: table-name
+  ReadCapacityUnits:
+    Type: Number
+    Default: 1
+  WriteCapacityUnits:
+    Type: Number
+    Default: 1
+
+Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      AttributeDefinitions:
+        -
+          AttributeName: 'id'
+          AttributeType: S
+        -
+          AttributeName: 'sk'
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: 'id'
+          KeyType: HASH
+        -
+          AttributeName: 'sk'
+          KeyType: RANGE
+      ProvisionedThroughput: 
+        ReadCapacityUnits:  !Ref ReadCapacityUnits
+        WriteCapacityUnits: !Ref WriteCapacityUnits
+      Tags:
+        - Key: Name
+          Value: !Ref DynamoDBTableName
+
+Outputs:
+  DynamoDBTable:
+    Value: !Ref DynamoDBTable
+    Export:
+      Name: dynamo-table-name
