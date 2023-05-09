@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "VPC-1 Base VPC Template"
+Description: VPC create Template
 
 Parameters:
   VPCCIDR:

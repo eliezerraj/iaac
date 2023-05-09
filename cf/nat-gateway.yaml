@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create NatGateway
+
+Parameters:
+  NatGatewayName:
+    Type: String
+    Default: natgw-
+  ElasticIpPublicName:
+    Type: String
+    Default: eip-natgw-vpc
+  SubnetPubA:
+    Type: String
+    Default: subnet-0c573d6da7426c4ca
+  RTSUBPRIVA:
+    Type: String
+    Default: rtb-0483d4da8024d9e1d
+
+Resources:
+  RouteRulePrivateANatGateway:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref RTSUBPRIVA
+      NatGatewayId: !Ref NatGateway
+
+  NatGateway:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId:
+        'Fn::GetAtt':
+          - ElasticIpPublic
+          - AllocationId
+      SubnetId: !Ref SubnetPubA
+      Tags:
+        - Key: Name
+          Value: !Ref NatGatewayName 
+
+  ElasticIpPublic:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Ref ElasticIpPublicName
