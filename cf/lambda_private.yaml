@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Lambda Public template
+Description: Lambda Private template
 
 Parameters:
   FunctionLambdaName:
@@ -20,28 +20,36 @@ Parameters:
     Type: String 
     Default: lambda-card-tenant/main.zip
   ManagedPolicyParameterOne:
-    Description: Inform policy ARN (opcional)
     Type: String 
     Default: arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
   ManagedPolicyParameterTwo:
-    Description: Inform policy ARN (opcional)
     Type: String 
     Default: arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
   ManagedPolicyParameterThree:
-    Description: Inform policy ARN (opcional)
     Type: String 
     Default: arn:aws:iam::884069944685:policy/DynamoDB-Fine-Grained-card-tenant
   Runtime:
-    Description: Runtime Environment name e.g nodejs, go 1.x
     Type: String
+    Description: Runtime Environment name e.g nodejs, java8
     AllowedPattern: ^(go 1.x)$
     ConstraintDescription: must be a valid environment (go 1.x)
     Default: go 1.x
-
-Conditions:
-  IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
-  IsManagedPolicyParameterTwo:    !Not [!Equals [ !Ref ManagedPolicyParameterTwo, "" ]]
-  IsManagedPolicyParameterThree:  !Not [!Equals [ !Ref ManagedPolicyParameterThree, "" ]]
+  VPCSubnetA:
+    Description: SubNet A
+    Type: String
+    Default: subnet-0b1545ac10d2dc44e
+  VPCSubnetB:
+    Description: SubNet B
+    Type: String
+    Default: subnet-06b05d49989b24eff
+  VPCSubnetC:
+    Description: SubNet C
+    Type: String
+    Default: subnet-0e12cef1a8605813d
+  VPCSecurityGroup:
+    Description: Security Group
+    Type: String
+    Default: sg-055f5e9caa57b7d8c
 
 Resources:
   LambdaExecutionRole:
@@ -57,13 +65,10 @@ Resources:
           Action:
           - sts:AssumeRole
       Path: "/"
-      ManagedPolicyArns:
-        - !If [ IsManagedPolicyParameterOne, !Ref ManagedPolicyParameterOne, !Ref 'AWS::NoValue' ]
-        - !If [ IsManagedPolicyParameterTwo, !Ref ManagedPolicyParameterTwo, !Ref 'AWS::NoValue' ]
-        - !If [ IsManagedPolicyParameterThree, !Ref ManagedPolicyParameterThree, !Ref 'AWS::NoValue' ]
-        #- !Ref ManagedPolicyParameterOne
-        #- !Ref ManagedPolicyParameterTwo
-        #- !Ref ManagedPolicyParameterThree
+      ManagedPolicyArns: 
+        - !Ref ManagedPolicyParameterOne
+        - !Ref ManagedPolicyParameterTwo
+        - !Ref ManagedPolicyParameterThree
       Policies:
       - PolicyName: lambda_policy
         PolicyDocument:
@@ -88,6 +93,13 @@ Resources:
       Handler: !Ref HandlerName
       Timeout: !Ref Timeout
       Runtime: !Ref Runtime
+      VpcConfig:
+        SecurityGroupIds:
+          - Ref: VPCSecurityGroup	
+        SubnetIds:
+          - Ref: VPCSubnetA
+          - Ref: VPCSubnetB
+          - Ref: VPCSubnetC
       Role: 
         Fn::GetAtt: 
           - "LambdaExecutionRole"

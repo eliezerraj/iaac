@@ -11,6 +11,10 @@ Parameters:
   WriteCapacityUnits:
     Type: Number
     Default: 1
+  IsTimeToLive:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
 
 Resources:
   DynamoDBTable:
@@ -34,12 +38,13 @@ Resources:
       ProvisionedThroughput: 
         ReadCapacityUnits:  !Ref ReadCapacityUnits
         WriteCapacityUnits: !Ref WriteCapacityUnits
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: !Ref IsTimeToLive
       Tags:
         - Key: Name
           Value: !Ref DynamoDBTableName
 
 Outputs:
   DynamoDBTable:
-    Value: !Ref DynamoDBTable
-    Export:
-      Name: dynamo-table-name
+    Value: !Ref DynamoDBTableName
