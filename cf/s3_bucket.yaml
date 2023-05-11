@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template create s3 bucket
+
+Parameters:
+  S3BucketName:
+    Description: Bucket Name
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref S3BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!Ref S3BucketName, "-Bucket"]]
+
+Outputs:
+  BucketName:
+    Value: !Ref S3Bucket
+    Description: The name of the bucket
+  BucketArn: 
+    Value: !GetAtt S3Bucket.Arn
+    Description: The buckey ARN
