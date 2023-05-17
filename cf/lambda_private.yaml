@@ -3,53 +3,74 @@ Description: Lambda Private template
 
 Parameters:
   FunctionLambdaName:
+    Description: Lambda Name
     Type: String
     Default: lambda-name
+  SquadName:
+    Description: Squad Name (TAG)
+    Type: String
+    Default: squad-name
+  AppName:
+    Description: App Name (TAG)
+    Type: String
+    Default: app-name
+
   HandlerName:
     Type: String
-    Description: Handler Name
+    Description: Handler Name (go=main, python=index.handler)
     Default: main
   Timeout:
     Type: Number
     Description: Timeout in seconds
     Default: 3
   S3BucketParam:
+    Description: Bucket lambda source (.zip)
     Type: String 
     Default: account-a-884069944685-artifacts
   S3KeyParam:
+    Description: Folder bucket lambda source (.zip)
     Type: String 
     Default: lambda-card-tenant/main.zip
+
   ManagedPolicyParameterOne:
+    Description: Managed policy ONE (opcional)
     Type: String 
-    Default: arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+    Default: arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
   ManagedPolicyParameterTwo:
+    Description: Managed policy TWO (opcional)
     Type: String 
-    Default: arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
+    Default: arn:aws:iam::aws:policy/AmazonRDSFullAccess
   ManagedPolicyParameterThree:
+    Description: Managed policy THREE (opcional)
     Type: String 
     Default: arn:aws:iam::884069944685:policy/DynamoDB-Fine-Grained-card-tenant
   Runtime:
+    Description: Runtime Environment name e.g nodejs, go1.x, python3.9
     Type: String
-    Description: Runtime Environment name e.g nodejs, java8
-    AllowedPattern: ^(go 1.x)$
     ConstraintDescription: must be a valid environment (go 1.x)
-    Default: go 1.x
+    Default: go1.x
+
   VPCSubnetA:
-    Description: SubNet A
+    Description: Lambda deploy SubNet A
     Type: String
     Default: subnet-0b1545ac10d2dc44e
   VPCSubnetB:
-    Description: SubNet B
+    Description: Lambda deploy SubNet B
     Type: String
     Default: subnet-06b05d49989b24eff
   VPCSubnetC:
-    Description: SubNet C
+    Description: Lambda deploy SubNet C
     Type: String
     Default: subnet-0e12cef1a8605813d
   VPCSecurityGroup:
-    Description: Security Group
+    Description: Lambda deploy Security Group
     Type: String
     Default: sg-055f5e9caa57b7d8c
+
+Conditions:
+  IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
+  IsManagedPolicyParameterTwo:    !Not [!Equals [ !Ref ManagedPolicyParameterTwo, "" ]]
+  IsManagedPolicyParameterThree:  !Not [!Equals [ !Ref ManagedPolicyParameterThree, "" ]]
 
 Resources:
   LambdaExecutionRole:
@@ -65,10 +86,10 @@ Resources:
           Action:
           - sts:AssumeRole
       Path: "/"
-      ManagedPolicyArns: 
-        - !Ref ManagedPolicyParameterOne
-        - !Ref ManagedPolicyParameterTwo
-        - !Ref ManagedPolicyParameterThree
+      ManagedPolicyArns:
+        - !If [ IsManagedPolicyParameterOne, !Ref ManagedPolicyParameterOne, !Ref 'AWS::NoValue' ]
+        - !If [ IsManagedPolicyParameterTwo, !Ref ManagedPolicyParameterTwo, !Ref 'AWS::NoValue' ]
+        - !If [ IsManagedPolicyParameterThree, !Ref ManagedPolicyParameterThree, !Ref 'AWS::NoValue' ]
       Policies:
       - PolicyName: lambda_policy
         PolicyDocument:
@@ -104,13 +125,27 @@ Resources:
         Fn::GetAtt: 
           - "LambdaExecutionRole"
           - "Arn"
-      Runtime: "go1.x"
+      Runtime: !Ref Runtime
       Code: 
         S3Bucket: !Ref S3BucketParam
         S3Key: !Ref S3KeyParam
       Tags:
-      - Key: Name
+      - Key: name
         Value: !Ref FunctionLambdaName
+      - Key: squad
+        Value: !Ref SquadName
+      - Key: app
+        Value: !Ref AppName
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: 7
+      LogGroupName: !Join
+        - ""
+        - -  "/aws/lambda/"
+          - !Ref LambdaFunction
 
   VersionLambda:
     Type: AWS::Lambda::Version

@@ -3,11 +3,21 @@ Description: Lambda Public template
 
 Parameters:
   FunctionLambdaName:
+    Description: Lambda Name
     Type: String
     Default: lambda-name
-  HandlerName:
+  SquadName:
+    Description: Squad Name (TAG)
     Type: String
-    Description: Handler Name
+    Default: squad-name
+  AppName:
+    Description: App Name (TAG)
+    Type: String
+    Default: app-name
+
+  HandlerName:
+    Description: Handler Name (go=main, python=index.handler)
+    Type: String
     Default: main
   Timeout:
     Type: Number
@@ -19,23 +29,24 @@ Parameters:
   S3KeyParam:
     Type: String 
     Default: lambda-card-tenant/main.zip
+
   ManagedPolicyParameterOne:
     Description: Inform policy ARN (opcional)
     Type: String 
-    Default: arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+    Default: arn:aws:iam::aws:policy/AmazonRDSFullAccess
   ManagedPolicyParameterTwo:
     Description: Inform policy ARN (opcional)
     Type: String 
-    Default: arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
+    Default: ""
   ManagedPolicyParameterThree:
     Description: Inform policy ARN (opcional)
     Type: String 
-    Default: arn:aws:iam::884069944685:policy/DynamoDB-Fine-Grained-card-tenant
+    Default: ""
+
   Runtime:
-    Description: Runtime Environment name e.g nodejs, go 1.x
+    Description: Runtime Environment name e.g nodejs, go1.x, python3.9
     Type: String
-    AllowedPattern: ^(go 1.x)$
-    ConstraintDescription: must be a valid environment (go 1.x)
+    ConstraintDescription: must be a valid environment (go1.x)
     Default: go 1.x
 
 Conditions:
@@ -61,9 +72,6 @@ Resources:
         - !If [ IsManagedPolicyParameterOne, !Ref ManagedPolicyParameterOne, !Ref 'AWS::NoValue' ]
         - !If [ IsManagedPolicyParameterTwo, !Ref ManagedPolicyParameterTwo, !Ref 'AWS::NoValue' ]
         - !If [ IsManagedPolicyParameterThree, !Ref ManagedPolicyParameterThree, !Ref 'AWS::NoValue' ]
-        #- !Ref ManagedPolicyParameterOne
-        #- !Ref ManagedPolicyParameterTwo
-        #- !Ref ManagedPolicyParameterThree
       Policies:
       - PolicyName: lambda_policy
         PolicyDocument:
@@ -92,13 +100,27 @@ Resources:
         Fn::GetAtt: 
           - "LambdaExecutionRole"
           - "Arn"
-      Runtime: "go1.x"
+      Runtime: !Ref Runtime
       Code: 
         S3Bucket: !Ref S3BucketParam
         S3Key: !Ref S3KeyParam
       Tags:
-      - Key: Name
+      - Key: name
         Value: !Ref FunctionLambdaName
+      - Key: squad
+        Value: !Ref SquadName
+      - Key: app
+        Value: !Ref AppName
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: 7
+      LogGroupName: !Join
+        - ""
+        - -  "/aws/lambda/"
+          - !Ref LambdaFunction
 
   VersionLambda:
     Type: AWS::Lambda::Version
