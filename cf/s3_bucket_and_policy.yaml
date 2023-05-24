@@ -2,17 +2,22 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Template create s3 bucket/policy
 
 Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
   S3BucketName:
     Description: Bucket Name
     Type: String
-  LambdaArnOne:
-    Description: Inform the lambda ARN
+  IDAccountCondition:
     Type: String
-    Default: ""
-
-Conditions:
-  IsLambdaArnOneInformed: !Not [!Equals [ !Ref LambdaArnOne, "" ]]
-
+    Default: 99999999
+    
 Resources:
   S3Bucket:
     Type: 'AWS::S3::Bucket'
@@ -22,9 +27,16 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
+
       Tags:
-      - Key: Name
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
+      - Key: name
         Value: !Join ['', [!Ref S3BucketName, "-Bucket"]]
+      - Key: resource
+        Value: bucket-s3
 
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -41,7 +53,10 @@ Resources:
               - !Sub arn:aws:s3:::${S3Bucket}/*
             Principal:
               '*'
-            #  - !If [ IsLambdaArnOneInformed, !Ref LambdaArnOne, '*' ]
+            Condition:
+              StringLike:
+                's3:ResourceAccount':
+                  - !Ref IDAccountCondition
 
 Outputs:
   BucketName:

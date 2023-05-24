@@ -1,7 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Template create s3 bucket
+Description: Template Create s3 Bucket
 
 Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
   S3BucketName:
     Description: Bucket Name
     Type: String
@@ -16,8 +25,14 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
       Tags:
-      - Key: Name
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
+      - Key: name
         Value: !Join ['', [!Ref S3BucketName, "-Bucket"]]
+      - Key: resource
+        Value: bucket-s3
 
 Outputs:
   BucketName:

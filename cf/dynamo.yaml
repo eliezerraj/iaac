@@ -1,7 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create DynamoDB"
+Description: Template Create DynamoDB
 
 Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
   DynamoDBTableName:
     Type: String
     Default: table-name
@@ -15,36 +24,71 @@ Parameters:
     Type: String
     AllowedValues: [ true, false ]
     Default: true
+  IsDeletionProtectionEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  IsPointInTimeRecoveryEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  DefaultBillingMode:
+    Type: String
+    Default: PAY_PER_REQUEST
+    AllowedValues:
+      - PROVISIONED
+      - PAY_PER_REQUEST
 
 Resources:
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Ref DynamoDBTableName
+      BillingMode: !Ref DefaultBillingMode
+      PointInTimeRecoverySpecification: 
+         PointInTimeRecoveryEnabled:  !Ref IsPointInTimeRecoveryEnabled
+      DeletionProtectionEnabled: !Ref IsDeletionProtectionEnabled
       AttributeDefinitions:
-        -
-          AttributeName: 'id'
+        - AttributeName: id
           AttributeType: S
-        -
-          AttributeName: 'sk'
+        - AttributeName: sk
           AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S         
       KeySchema:
-        -
-          AttributeName: 'id'
+        - AttributeName: id
           KeyType: HASH
-        -
-          AttributeName: 'sk'
+        - AttributeName: sk
           KeyType: RANGE
-      ProvisionedThroughput: 
-        ReadCapacityUnits:  !Ref ReadCapacityUnits
-        WriteCapacityUnits: !Ref WriteCapacityUnits
+
+      GlobalSecondaryIndexes:
+        - IndexName: tenant-idx
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      #ProvisionedThroughput:   
+        #ReadCapacityUnits:  !Ref ReadCapacityUnits
+        #WriteCapacityUnits: !Ref WriteCapacityUnits
+
       TimeToLiveSpecification:
         AttributeName: TimeToLive
         Enabled: !Ref IsTimeToLive
+
       Tags:
-        - Key: Name
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
           Value: !Ref DynamoDBTableName
+        - Key: resource
+          Value: dynamo
 
 Outputs:
   DynamoDBTable:
     Value: !Ref DynamoDBTableName
+  DynamoDBTableARN:
+    Value: !GetAtt DynamoDBTable.Arn
