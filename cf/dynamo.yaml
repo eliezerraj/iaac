@@ -13,7 +13,7 @@ Parameters:
       - prd
   DynamoDBTableName:
     Type: String
-    Default: table-name
+    Default: my-architecture-table
   ReadCapacityUnits:
     Type: Number
     Default: 1
@@ -29,6 +29,10 @@ Parameters:
     AllowedValues: [ true, false ]
     Default: true
   IsPointInTimeRecoveryEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  IsBackupEnabled:
     Type: String
     AllowedValues: [ true, false ]
     Default: true
@@ -62,7 +66,7 @@ Resources:
           KeyType: RANGE
 
       GlobalSecondaryIndexes:
-        - IndexName: tenant-idx
+        - IndexName: index
           KeySchema:
             - AttributeName: tenantId
               KeyType: HASH
@@ -86,6 +90,8 @@ Resources:
           Value: !Ref DynamoDBTableName
         - Key: resource
           Value: dynamo
+        - Key: backup
+          Value: !Ref IsBackupEnabled
 
 Outputs:
   DynamoDBTable:

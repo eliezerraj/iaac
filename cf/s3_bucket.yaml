@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Template Create s3 Bucket
+Description: Template create s3 bucket/policy
 
 Parameters:
   Versao:
@@ -14,7 +14,10 @@ Parameters:
   S3BucketName:
     Description: Bucket Name
     Type: String
-
+  IDAccountCondition:
+    Type: String
+    Default: 99999999
+    
 Resources:
   S3Bucket:
     Type: 'AWS::S3::Bucket'
@@ -24,6 +27,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
+
       Tags:
       - Key: env
         Value: !Ref Env
@@ -33,6 +37,26 @@ Resources:
         Value: !Join ['', [!Ref S3BucketName, "-Bucket"]]
       - Key: resource
         Value: bucket-s3
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+            Principal:
+              '*'
+            Condition:
+              StringLike:
+                's3:ResourceAccount':
+                  - !Ref IDAccountCondition
 
 Outputs:
   BucketName:

@@ -14,10 +14,14 @@ Parameters:
   S3BucketName:
     Description: Bucket Name
     Type: String
-  IDAccountCondition:
+  LambdaArnOne:
+    Description: Inform the lambda ARN
     Type: String
-    Default: 99999999
-    
+    Default: ""
+
+Conditions:
+  IsLambdaArnOneInformed: !Not [!Equals [ !Ref LambdaArnOne, "" ]]
+
 Resources:
   S3Bucket:
     Type: 'AWS::S3::Bucket'
@@ -53,11 +57,6 @@ Resources:
               - !Sub arn:aws:s3:::${S3Bucket}/*
             Principal:
               '*'
-            Condition:
-              StringLike:
-                's3:ResourceAccount':
-                  - !Ref IDAccountCondition
-
 Outputs:
   BucketName:
     Value: !Ref S3Bucket
