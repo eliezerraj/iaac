@@ -7,8 +7,10 @@ Parameters:
     Type: String
     Default: 1
   ServiceName:
+    Description: Name ApiGw
     Type: String
   LambdaFunctionArn:
+    Description: Lambda ARN
     Type: String
   Env:
     Description: Execution environment
@@ -116,40 +118,7 @@ Resources:
             post:
               consumes:
               - application/json
-              parameters:
-              - description: !Ref ServiceName
-                schema:
-                  $ref: '#/definitions/Empty'
-              responses:
-                '200':
-                  description: Transaction approved
-                  schema:
-                    $ref: '#/definitions/Empty'
-                  headers:
-                    Access-Control-Allow-Origin:
-                      type: string
-                    Access-Control-Allow-Methods:
-                      type: string
-                    Access-Control-Allow-Headers:
-                      type: string
-              x-amazon-apigateway-integration:
-                credentials:
-                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayIAMAutenticationExecutionRole
-                uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
-                responses:
-                  default:
-                    statusCode: '200'
-                    responseParameters:
-                      method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,PATCH,POST,PUT'"
-                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
-                passthroughBehavior: when_no_match
-                httpMethod: GET
-                type: aws_proxy
-          /version:
-            get:
-              consumes:
+              produces:
               - application/json
               parameters:
               - description: !Ref ServiceName
@@ -169,9 +138,46 @@ Resources:
                       type: string
               x-amazon-apigateway-integration:
                 credentials:
-                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayIAMAutenticationExecutionRole
+                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayDataDogExecutionRole
                 uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}:live/invocations
+                responses:
+                  default:
+                    statusCode: '200'
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,PATCH,POST,PUT'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: when_no_match
+                httpMethod: GET
+                type: aws_proxy
+          /version:
+            get:
+              consumes:
+              - application/json
+              produces:
+              - application/json
+              parameters:
+              - description: !Ref ServiceName
+                schema:
+                  $ref: '#/definitions/Empty'
+              responses:
+                '200':
+                  description: Transaction approved
+                  schema:
+                    $ref: '#/definitions/Empty'
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+              x-amazon-apigateway-integration:
+                credentials:
+                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayDataDogExecutionRole
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}:live/invocations
                 responses:
                   default:
                     statusCode: '200'
@@ -192,10 +198,10 @@ Resources:
   ApiGwExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: APIGatewayIAMAutenticationExecutionRole
+      RoleName: APIGatewayDataDogExecutionRole
       Path: /
       Policies:
-      - PolicyName: APIGatewayIAMAutenticationExecutionRole
+      - PolicyName: APIGatewayDataDogExecutionRole
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
