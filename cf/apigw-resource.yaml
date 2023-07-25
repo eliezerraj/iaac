@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: People Module
+Description: ApiGateway Resources Module
 
 Parameters:
   Versao:
@@ -47,7 +47,7 @@ Resources:
   ApiGwLogGroupPrivate:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /apigateway/lambda-iam-authorizer
+      LogGroupName: /apigateway/apigw-iam-authorizer
       Tags:
       - Key: env
         Value: !Ref Env
@@ -74,24 +74,24 @@ Resources:
       Variables:
         apiName: !Ref ServiceName
       EndpointConfiguration:
-        Type: EDGE
+        Type: REGIONAL
       Tags:
-      - Key: env
-        Value: !Ref Env
-      - Key: stack
-        Value: !Sub ${AWS::StackName}         
-      - Key: name
-        Value: !Ref ServiceName
-      - Key: platform
-        Value: !Ref  PlatformName
-      - Key: product
-        Value: !Ref ProductName
-      - Key: component
-        Value: !Ref ComponentName
-      - Key: scope
-        Value: !Ref ScopeName
-      - Key: squad
-        Value: !Ref SquadName
+        env:
+          Ref: Env
+        stack:
+          Fn::Sub: ${AWS::StackName}
+        name:
+          Ref: ServiceName      
+        platform:
+          Ref: PlatformName     
+        product:
+          Ref: ProductName
+        component:
+          Ref: ComponentName
+        scope:
+          Ref: ScopeName
+        squad:
+          Ref: SquadName
       AccessLogSetting:
         DestinationArn:
           Fn::GetAtt:
@@ -112,7 +112,42 @@ Resources:
         schemes:
         - https
         paths:
-          /:
+          /autentication:
+            post:
+              consumes:
+              - application/json
+              parameters:
+              - description: !Ref ServiceName
+                schema:
+                  $ref: '#/definitions/Empty'
+              responses:
+                '200':
+                  description: Transaction approved
+                  schema:
+                    $ref: '#/definitions/Empty'
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+              x-amazon-apigateway-integration:
+                credentials:
+                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayIAMAutenticationExecutionRole
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+                responses:
+                  default:
+                    statusCode: '200'
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,PATCH,POST,PUT'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: when_no_match
+                httpMethod: GET
+                type: aws_proxy
+          /version:
             get:
               consumes:
               - application/json
@@ -134,7 +169,7 @@ Resources:
                       type: string
               x-amazon-apigateway-integration:
                 credentials:
-                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/PeopleAPIGatewayExecutionRole
+                  Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/APIGatewayIAMAutenticationExecutionRole
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
                 responses:
@@ -157,10 +192,10 @@ Resources:
   ApiGwExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: APIGatewayLambdaExecutionRole
+      RoleName: APIGatewayIAMAutenticationExecutionRole
       Path: /
       Policies:
-      - PolicyName: APIGatewayLambdaExecutionRole
+      - PolicyName: APIGatewayIAMAutenticationExecutionRole
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
