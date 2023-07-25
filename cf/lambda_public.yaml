@@ -126,14 +126,14 @@ Resources:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref LambdaFunction
-      Description: version Live
+      Description: version live
 
   AliasLambda:
     Type: AWS::Lambda::Alias
     Properties:
       FunctionName: !Ref LambdaFunction
       FunctionVersion: !GetAtt VersionLambda.Version
-      Name: LIVE
+      Name: live
 
 Outputs:
   LambdaFunctionARN:
