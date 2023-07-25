@@ -26,11 +26,11 @@ Parameters:
   S3BucketParam:
     Description: Bucket lambda source (.zip)
     Type: String 
-    Default: account-a-884069944685-artifacts
+    Default: eliezer-908671954593-upload-lambda-source
   S3KeyParam:
     Description: Folder bucket lambda source (.zip)
     Type: String 
-    Default: lambda-card-tenant/main.zip
+    Default: lambda-go-datadog/main.zip
 
   ManagedPolicyParameterOne:
     Description: Managed policy ONE (opcional)
@@ -53,19 +53,19 @@ Parameters:
   VPCSubnetA:
     Description: Lambda deploy SubNet A
     Type: String
-    Default: subnet-0b1545ac10d2dc44e
+    Default: subnet-0ca2d45be9d6ab5bc
   VPCSubnetB:
     Description: Lambda deploy SubNet B
     Type: String
-    Default: subnet-06b05d49989b24eff
+    Default: subnet-05d3e7f4611c12a23
   VPCSubnetC:
     Description: Lambda deploy SubNet C
     Type: String
-    Default: subnet-0e12cef1a8605813d
+    Default: subnet-0b2b57acbb1da0623
   VPCSecurityGroup:
     Description: Lambda deploy Security Group
     Type: String
-    Default: sg-055f5e9caa57b7d8c
+    Default: sg-0148ba6572e1137e0
 
 Conditions:
   IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
