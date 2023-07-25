@@ -149,7 +149,7 @@ Resources:
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
                       method.response.header.Access-Control-Allow-Origin: "'*'"
                 passthroughBehavior: when_no_match
-                httpMethod: GET
+                httpMethod: POST
                 type: aws_proxy
           /version:
             get:
@@ -186,7 +186,7 @@ Resources:
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
                       method.response.header.Access-Control-Allow-Origin: "'*'"
                 passthroughBehavior: when_no_match
-                httpMethod: GET
+                httpMethod: POST
                 type: aws_proxy
 
   ApiGwDeploymentPrivate:
