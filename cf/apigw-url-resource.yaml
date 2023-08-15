@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ApiGateway Resources Module
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1
+  InternalDomainName:
+    Description: ApiGw Endpoint URL 
+    Type: String
+    Default: eks.architecture.caradhras.io
+  VpcLinkId:
+    Type: String
+    Default: 3r66h8
+  ServiceName:
+    Description: Name ApiGw
+    Type: String
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  PlatformName:
+    Description: Platform Name (TAG)
+    Type: String
+    Default: plataform-name
+  ProductName:
+    Description: Product Name (TAG)
+    Type: String
+    Default: product-name
+  ComponentName:
+    Description: Component Name (TAG)
+    Type: String
+    Default: component-name
+  ScopeName:
+    Description: Scope Type (pci,pci-conneted,non-pci)
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  SquadName:
+    Description: Squad Name (TAG)
+    Type: String
+    Default: squad-name
+
+Resources:
+  ApiGwLogGroupPrivate:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /apigateway/apigw-go-hello-world-web
+      RetentionInDays: 90
+      Tags:
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}         
+      - Key: name
+        Value: !Ref ServiceName
+      - Key: platform
+        Value: !Ref  PlatformName
+      - Key: product
+        Value: !Ref ProductName
+      - Key: component
+        Value: !Ref ComponentName
+      - Key: scope
+        Value: !Ref ScopeName
+      - Key: squad
+        Value: !Ref SquadName
+
+  ApiGatewayPrivate:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Ref ServiceName
+      StageName: Live
+      Variables:
+        apiName: !Ref ServiceName
+      EndpointConfiguration:
+        Type: REGIONAL
+      Tags:
+        env:
+          Ref: Env
+        stack:
+          Fn::Sub: ${AWS::StackName}
+        name:
+          Ref: ServiceName      
+        platform:
+          Ref: PlatformName     
+        product:
+          Ref: ProductName
+        component:
+          Ref: ComponentName
+        scope:
+          Ref: ScopeName
+        squad:
+          Ref: SquadName
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - ApiGwLogGroupPrivate
+          - Arn
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        MetricsEnabled: 'true'
+        DataTraceEnabled: 'false'
+        LoggingLevel: ERROR
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          description: !Ref ServiceName
+          title: !Ref ServiceName
+          version: 1.0.0
+        schemes:
+        - https
+        paths:
+          /autentication:
+            post:
+              consumes:
+              - application/json
+              produces:
+              - application/json
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+              - name: trace-id
+                in: header
+                required: true
+              responses:
+                '200':
+                  description: Transaction approved
+                  schema:
+                    $ref: '#/definitions/Empty'
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+                  schema:
+                    "$ref": "#/definitions/Empty"
+
+                "500":
+                  description: Internal Server Error
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    client-id:
+                      description: client-id
+                      type: "string"
+                    trace-id:
+                      description: trace-id
+                      type: "string"
+                  schema:
+                    "$ref": "#/definitions/Empty"
+                    
+              x-amazon-apigateway-integration:
+                uri: !Sub "https://${InternalDomainName}/post"
+                responses:
+                  "200":
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                    statusCode: 200
+                  "500":
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                    statusCode: 500
+                requestParameters:
+                  integration.request.header.client-id: method.request.header.client-id
+                  integration.request.header.trace-id: method.request.header.trace-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkId
+                httpMethod: POST
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP_PROXY
+
+          /info:
+            get:
+              produces:
+              - application/json
+              parameters:
+              - description: !Ref ServiceName
+                schema:
+                  $ref: '#/definitions/Empty'
+              responses:
+                '200':
+                  description: Transaction approved
+                  schema:
+                    $ref: '#/definitions/Empty'
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+              x-amazon-apigateway-integration:
+                uri: !Sub "https://${InternalDomainName}/info"
+                responses:
+                  "200":
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpcLinkId
+                httpMethod: GET
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "HTTP_PROXY"
+
+  ApiGwDeploymentPrivate:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Ref: ApiGatewayPrivate
+
+  ApiGwExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: APIGatewayHelloWorldExecutionRole
+      Path: /
+      Policies:
+      - PolicyName: APIGatewayHelloWorldExecutionRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - lambda:InvokeFunction
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Effect: Allow
+            Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - apigateway.amazonaws.com
+          Action: sts:AssumeRole

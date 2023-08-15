@@ -50,6 +50,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /apigateway/apigw-iam-authorizer
+      RetentionInDays: 90
       Tags:
       - Key: env
         Value: !Ref Env

@@ -15,7 +15,7 @@ Parameters:
       - hml
       - prd
   ServiceName:
-    Description: ApiGe Service Name
+    Description: ApiGw Service Name
     Type: String
     Default: service-name
   PlatformName:

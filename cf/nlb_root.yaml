@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: creation of nlb
+
+Parameters:
+  Versao:
+    Type: String
+  Env:
+    Type: String
+    Default: dev
+  TemplateURL:
+    Type: String
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/nlb_template.yaml
+  ElbScheme:
+    Type: String
+    AllowedValues:
+      - internal
+      - internet-facing
+    Default: internet-facing
+  ListenerPort:
+    Type: String
+    Default: 80
+  TargetGroupPort:
+    Type: String
+    Default: 80
+    
+Mappings:
+  Network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+      CertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/9de4de50-a18e-451c-961b-274559a8bde7
+      HostedZoneId: Z08808671BQOU9WUREDU
+      DomainName: ingnlb.architecture.caradhras.io
+    hml:
+      VpcId: vpc-053bf362926211174
+      VpcCidr: 10.213.0.0/16
+      SubnetAZA: subnet-0fb3b86a8657a696f
+      SubnetAZB: subnet-0fb6727ed0041b799
+      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+      CertificateArn: arn:aws:acm:us-east-2:507624287112:certificate/29a24e28-be7e-43dd-937a-bad9626c7ce8
+      HostedZoneId: Z0122816CCG7PS5P0699
+      DomainName: eks.global.eitri.hml.caradhras.io
+  Tag:
+    Service:
+      value: eks  
+    Squad:
+      value: architecture
+    Slack:
+      value: architecture 
+    Email:
+      value: architecture
+  Nlb:
+    Version:
+      value: 1.0.0
+
+Conditions:
+  isPrd: !Equals [!Ref Env, prd]
+
+  isDevOrHml: !Or
+    - !Equals [!Ref Env, dev]
+    - !Equals [!Ref Env, hml]
+
+Resources:
+  Nlb:
+    Condition: isDevOrHml
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        IpAddressType: ipv4
+        LoadBalancerName: !Sub go-hello-world-web-nlb-ing-${Env}
+        Scheme: !Ref ElbScheme
+        LoadBalancerType: network
+        SubnetIds:
+          !Join
+          - ","
+          - - !FindInMap [ Network, !Ref Env, SubnetAZA ]
+            - !FindInMap [ Network, !Ref Env, SubnetAZB ] 
+            - !FindInMap [ Network, !Ref Env, SubnetAZC ]
+        VpcId: !FindInMap [ Network, !Ref Env, VpcId ]
+        HostedZoneId: !FindInMap [ Network, !Ref Env, HostedZoneId ]
+        DomainName: !FindInMap [ Network, !Ref Env, DomainName ]
+        Env: !Ref Env
+        Service: !FindInMap [ Tag, Service, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Squad: !FindInMap [ Tag, Squad, value ] 
+        Email: !FindInMap [ Tag, Email, value ]
+      TemplateURL: !Ref TemplateURL
+
+  WorkerHelloWorldWeb:
+    Condition: isDevOrHml
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Order: 1
+          TargetGroupArn: !Ref WorkerHelloWorldWebTarget
+          Type: forward
+      LoadBalancerArn: 
+        Fn::GetAtt: [Nlb, Outputs.LoadBalancerArn]
+      Port: 443
+      Certificates:
+        - CertificateArn: !FindInMap [ Network, !Ref Env, CertificateArn ] 
+      Protocol: TLS
+
+  WorkerHelloWorldWebNoTLS:
+    Condition: isDevOrHml
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Order: 2
+          TargetGroupArn: !Ref WorkerHelloWorldWebTarget
+          Type: forward
+      LoadBalancerArn: 
+        Fn::GetAtt: [Nlb, Outputs.LoadBalancerArn]
+      Port: !Ref ListenerPort
+      Protocol: TCP
+
+  WorkerHelloWorldWebTarget:
+    Condition: isDevOrHml
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: go-hello-world-web-b-tg
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPort: !Ref TargetGroupPort
+      HealthCheckProtocol: TCP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: !Ref TargetGroupPort
+      Protocol: TCP
+      TargetType: ip
+      VpcId: !FindInMap [ Network, !Ref Env, VpcId ] 
+      Tags:
+        - Key: Name
+          Value: go-hello-world-web
+        -
+          Key: env
+          Value: !Ref Env
+        -
+          Key: service
+          Value: !FindInMap [ Tag, Service, value ]
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        -
+          Key: squad
+          Value: !FindInMap [ Tag, Squad, value ]
+        -
+          Key: slack
+          Value: !FindInMap [ Tag, Slack, value ]
+        -
+          Key: email
+          Value: !FindInMap [ Tag, Email, value ]
+        -
+          Key: resource
+          Value: target-group
+  
