@@ -54,6 +54,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /apigateway/apigw-go-hello-world-web
+      RetentionInDays: 90
       Tags:
       - Key: env
         Value: !Ref Env
