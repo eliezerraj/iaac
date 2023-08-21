@@ -38,26 +38,6 @@ Resources:
       - Key: resource
         Value: bucket-s3
 
-  S3BucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref S3BucketName
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:*
-            Resource:
-              - !Sub arn:aws:s3:::${S3Bucket}
-              - !Sub arn:aws:s3:::${S3Bucket}/*
-            Principal:
-              '*'
-            Condition:
-              StringLike:
-                's3:ResourceAccount':
-                  - !Ref IDAccountCondition
-
 Outputs:
   BucketName:
     Value: !Ref S3Bucket
