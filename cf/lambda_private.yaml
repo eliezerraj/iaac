@@ -1,71 +1,77 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Lambda Private template
+Description: Lambda Public template
 
 Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
   FunctionLambdaName:
     Description: Lambda Name
     Type: String
-    Default: lambda-name
-  SquadName:
-    Description: Squad Name (TAG)
+    Default: lambda-go-autentication
+  ApplicationName:
     Type: String
-    Default: squad-name
-  AppName:
-    Description: App Name (TAG)
+    Default: lambda-go-autentication
+  OwnerName:
     Type: String
-    Default: app-name
-
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: lambda
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  PlatformName:
+    Type: String
+    Default: dockone
+    
   HandlerName:
-    Type: String
     Description: Handler Name (go=main, python=index.handler)
+    Type: String
     Default: main
   Timeout:
     Type: Number
     Description: Timeout in seconds
     Default: 3
   S3BucketParam:
-    Description: Bucket lambda source (.zip)
     Type: String 
-    Default: eliezer-908671954593-upload-lambda-source
+    Default: account-a-884069944685-artifacts
   S3KeyParam:
-    Description: Folder bucket lambda source (.zip)
     Type: String 
-    Default: lambda-go-datadog/main.zip
+    Default: lambda-go-autentication/main.zip
 
   ManagedPolicyParameterOne:
-    Description: Managed policy ONE (opcional)
-    Type: String 
-    Default: arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-  ManagedPolicyParameterTwo:
-    Description: Managed policy TWO (opcional)
+    Description: Inform policy ARN (opcional)
     Type: String 
     Default: arn:aws:iam::aws:policy/AmazonRDSFullAccess
-  ManagedPolicyParameterThree:
-    Description: Managed policy THREE (opcional)
+  ManagedPolicyParameterTwo:
+    Description: Inform policy ARN (opcional)
     Type: String 
-    Default: arn:aws:iam::884069944685:policy/DynamoDB-Fine-Grained-card-tenant
+    Default: arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  ManagedPolicyParameterThree:
+    Description: Inform policy ARN (opcional)
+    Type: String 
+    Default: ""
+
   Runtime:
     Description: Runtime Environment name e.g nodejs, go1.x, python3.9
     Type: String
-    ConstraintDescription: must be a valid environment (go 1.x)
+    ConstraintDescription: must be a valid environment (go1.x)
     Default: go1.x
-
-  VPCSubnetA:
-    Description: Lambda deploy SubNet A
-    Type: String
-    Default: subnet-0ca2d45be9d6ab5bc
-  VPCSubnetB:
-    Description: Lambda deploy SubNet B
-    Type: String
-    Default: subnet-05d3e7f4611c12a23
-  VPCSubnetC:
-    Description: Lambda deploy SubNet C
-    Type: String
-    Default: subnet-0b2b57acbb1da0623
-  VPCSecurityGroup:
-    Description: Lambda deploy Security Group
-    Type: String
-    Default: sg-0148ba6572e1137e0
 
 Conditions:
   IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
@@ -114,13 +120,6 @@ Resources:
       Handler: !Ref HandlerName
       Timeout: !Ref Timeout
       Runtime: !Ref Runtime
-      VpcConfig:
-        SecurityGroupIds:
-          - Ref: VPCSecurityGroup	
-        SubnetIds:
-          - Ref: VPCSubnetA
-          - Ref: VPCSubnetB
-          - Ref: VPCSubnetC
       Role: 
         Fn::GetAtt: 
           - "LambdaExecutionRole"
@@ -130,12 +129,26 @@ Resources:
         S3Bucket: !Ref S3BucketParam
         S3Key: !Ref S3KeyParam
       Tags:
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
       - Key: name
         Value: !Ref FunctionLambdaName
-      - Key: squad
-        Value: !Ref SquadName
-      - Key: app
-        Value: !Ref AppName
+      - Key: resource
+        Value: lambda
+      - Key: business_unit
+        Value: !Ref BusinessUnitName
+      - Key: platform
+        Value: !Ref PlatformName
+      - Key: application
+        Value: !Ref ApplicationName
+      - Key: component
+        Value: !Ref ComponentName
+      - Key: pci_classification
+        Value: !Ref PciClassificationName
+      - Key: owner
+        Value: !Ref OwnerName
 
   LambdaFunctionLogGroup:
     Type: AWS::Logs::LogGroup

@@ -7,6 +7,7 @@ Parameters:
     Default: 0
   Env:
     Type: String
+    Default: dev
     AllowedValues:
       - dev
       - hml
@@ -14,6 +15,26 @@ Parameters:
   DynamoDBTableName:
     Type: String
     Default: my-architecture-table
+  BusinessUnitName:
+    Type: String
+  PlatformName:
+    Type: String
+    Default: architecture
+  ApplicationName:
+    Type: String
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
   ReadCapacityUnits:
     Type: Number
     Default: 1
@@ -92,6 +113,18 @@ Resources:
           Value: dynamo
         - Key: backup
           Value: !Ref IsBackupEnabled
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
 
 Outputs:
   DynamoDBTable:
