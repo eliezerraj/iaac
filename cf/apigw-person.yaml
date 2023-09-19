@@ -1,0 +1,1310 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: persons-contract-api
+Parameters:
+  Versao:
+    Type: String
+  Env:
+    Description: stack environment
+    Type: String
+  CustomAccessLogFormatParameter:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Custom Access Log for API Gateway
+    Default: CustomAccessLogFormat
+Mappings:
+  Network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcEndpointId: vpce-0cc0b1181b93539f0
+      InternalDomainName: people-eks-fargate.global.people.dev.caradhras.io
+    hml:
+      VpcId: vpc-053bf362926211174
+      VpcEndpointId: vpce-078c9ba44be2cbce6
+      InternalDomainName: people-eks-fargate.global.people.hml.caradhras.io
+    prd:
+      VpcId: vpc-05583dab4737e64fd
+      VpcEndpointId: vpce-0fa04a473c0f22f26
+      InternalDomainName: people-eks-fargate.global.people.caradhras.io
+  Tag:
+    Service:
+      value: persons
+    Squad:
+      value: squad-khnum
+    Slack:
+      value: core-squad-khnum
+    Email:
+      value: squad-khnum
+Resources:
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /dock/apigateway/persons-contract-api
+      Tags:
+      - Key: env
+        Value:
+          Ref: Env
+      - Key: service
+        Value:
+          Fn::FindInMap:
+          - Tag
+          - Service
+          - value
+      - Key: stack
+        Value:
+          Fn::Sub: ${AWS::StackName}
+      - Key: squad
+        Value:
+          Fn::FindInMap:
+          - Tag
+          - Squad
+          - value
+      - Key: slack
+        Value:
+          Fn::FindInMap:
+          - Tag
+          - Slack
+          - value
+      - Key: email
+        Value:
+          Fn::FindInMap:
+          - Tag
+          - Email
+          - value
+      - Key: resource
+        Value: log-group
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      AlwaysDeploy: true
+      StageName: Live
+      EndpointConfiguration:
+        Type: PRIVATE
+        VPCEndpointIds:
+        - Fn::FindInMap:
+          - Network
+          - Ref: Env
+          - VpcEndpointId
+      Variables:
+        apiName: persons-contract-api
+      Tags:
+        env:
+          Ref: Env
+        service:
+          Fn::FindInMap:
+          - Tag
+          - Service
+          - value
+        stack:
+          Fn::Sub: ${AWS::StackName}
+        squad:
+          Fn::FindInMap:
+          - Tag
+          - Squad
+          - value
+        slack:
+          Fn::FindInMap:
+          - Tag
+          - Slack
+          - value
+        email:
+          Fn::FindInMap:
+          - Tag
+          - Email
+          - value
+        resource: api-gateway
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - AccessLogGroup
+          - Arn
+        Format:
+          Ref: CustomAccessLogFormatParameter
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        MetricsEnabled: false
+        DataTraceEnabled: false
+        LoggingLevel: INFO
+      TracingEnabled: false
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: persons-contract-api
+          version: 0.1.0
+        paths:
+          /person/v1/contract-relationships:
+            post:
+              tags:
+              - contract-relationships
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CreateContractRelRequest'
+                required: true
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '201':
+                  description: 201 Created
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/CreateContractRelResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: POST
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contract-relationships
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '201':
+                    statusCode: '201'
+                  '400':
+                    statusCode: '400'
+                  '422':
+                    statusCode: '422'
+                  '500':
+                    statusCode: '500'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contract-relationships/{id}/deactivate:
+            patch:
+              tags:
+              - contract-relationships
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/DeactivateContractRelRequest'
+                required: true
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '404':
+                  description: 404 Not Found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/NotFoundResponse'
+                '204':
+                  description: 204 No Content
+                  content: {}
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: PATCH
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contract-relationships/{id}/deactivate
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '204':
+                    statusCode: '204'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '404':
+                    statusCode: '404'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.path.id: method.request.path.id
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contracts:
+            post:
+              tags:
+              - contracts
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CreateContractRequest'
+                required: true
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '201':
+                  description: 201 Created
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/CreateContractResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: POST
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contracts
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '201':
+                    statusCode: '201'
+                  '400':
+                    statusCode: '400'
+                  '422':
+                    statusCode: '422'
+                  '500':
+                    statusCode: '500'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contracts/{id}:
+            get:
+              tags:
+              - contracts
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '404':
+                  description: 404 Not Found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/NotFoundResponse'
+                '200':
+                  description: 200 OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/ReadContractResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: GET
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contracts/{id}
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '200':
+                    statusCode: '200'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '404':
+                    statusCode: '404'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.path.id: method.request.path.id
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+            patch:
+              tags:
+              - contracts
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/UpdateContractRequest'
+                required: true
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '404':
+                  description: 404 Not Found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/NotFoundResponse'
+                '200':
+                  description: 200 OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UpdateContractResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: PATCH
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contracts/{id}
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '200':
+                    statusCode: '200'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '404':
+                    statusCode: '404'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.path.id: method.request.path.id
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contracts/{id}/relationships:
+            get:
+              tags:
+              - contracts
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '200':
+                  description: 200 OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/ReadContractRelResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: GET
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contracts/{id}/relationships
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '200':
+                    statusCode: '200'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.path.id: method.request.path.id
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contracts/{id}/deactivate:
+            patch:
+              tags:
+              - contracts
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: id
+                in: path
+                required: true
+                schema:
+                  type: string
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/DeactivateContractRequest'
+                required: true
+              responses:
+                '415':
+                  description: 415 Unsupported Media Type
+                  content: {}
+                '404':
+                  description: 404 Not Found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/NotFoundResponse'
+                '204':
+                  description: 204 No Content
+                  content: {}
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: PATCH
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contracts/{id}/deactivate
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '204':
+                    statusCode: '204'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '404':
+                    statusCode: '404'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.path.id: method.request.path.id
+                  integration.request.header.client-id: method.request.header.client-id
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/contract-roles:
+            get:
+              tags:
+              - contract-roles
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: code
+                in: query
+                required: false
+                schema:
+                  type: string
+              - name: page
+                in: query
+                required: false
+                schema:
+                  type: integer
+                  default: 0
+              - name: limit
+                in: query
+                required: false
+                schema:
+                  type: integer
+                  default: 150
+              responses:
+                '200':
+                  description: 200 OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/ContractRolesResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: GET
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/contract-roles
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '200':
+                    statusCode: '200'
+                  '422':
+                    statusCode: '422'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.header.client-id: method.request.header.client-id
+                  integration.request.querystring.code: method.request.querystring.code
+                  integration.request.querystring.page: method.request.querystring.page
+                  integration.request.querystring.limit: method.request.querystring.limit
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+          /person/v1/business-groups:
+            get:
+              tags:
+              - business-groups
+              parameters:
+              - name: client-id
+                in: header
+                required: true
+                schema:
+                  type: string
+              - name: name
+                in: query
+                required: false
+                schema:
+                  type: string
+              - name: page
+                in: query
+                required: false
+                schema:
+                  type: integer
+                  default: 0
+              - name: limit
+                in: query
+                required: false
+                schema:
+                  type: integer
+                  default: 150
+              responses:
+                '200':
+                  description: 200 OK
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BusinessGroupsResponse'
+                '400':
+                  description: 400 Bad Request
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/BadRequestResponse'
+                '404':
+                  description: 404 Not Found
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/NotFoundResponse'
+                '422':
+                  description: 422 Unprocessable Content
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/UnprocessableEntityResponse'
+                '500':
+                  description: 500 Internal Server Error
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/InternalServerErrorResponse'
+              x-amazon-apigateway-integration:
+                connectionId:
+                  Fn::ImportValue: VpcLinkIdPersons-Non-Pci
+                httpMethod: GET
+                uri:
+                  Fn::Sub:
+                  - https://${InternalDomainName}/person/v1/business-groups
+                  - InternalDomainName:
+                      Fn::FindInMap:
+                      - Network
+                      - Ref: Env
+                      - InternalDomainName
+                responses:
+                  '200':
+                    statusCode: '200'
+                  '422':
+                    statusCode: '422'
+                  '404':
+                    statusCode: '404'
+                  '400':
+                    statusCode: '400'
+                  '500':
+                    statusCode: '500'
+                  '415':
+                    statusCode: '415'
+                requestParameters:
+                  integration.request.header.client-id: method.request.header.client-id
+                  integration.request.querystring.name: method.request.querystring.name
+                  integration.request.querystring.page: method.request.querystring.page
+                  integration.request.querystring.limit: method.request.querystring.limit
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                contentHandling: CONVERT_TO_TEXT
+                type: HTTP
+        components:
+          schemas:
+            ReadContractRelResponse:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      client_id:
+                        type: string
+                        format: uuid
+                      person_id:
+                        type: string
+                        format: uuid
+                      contract_id:
+                        type: string
+                        format: uuid
+                      contract_role_id:
+                        type: string
+                        format: uuid
+                      start_date:
+                        type: string
+                        format: date-time
+                      end_date:
+                        type: string
+                        format: date-time
+                      creation_date:
+                        type: string
+                        format: date-time
+                      update_date:
+                        type: string
+                        format: date-time
+                metadata:
+                  $ref: '#/components/schemas/MetadataResponse'
+            BusinessGroupsResponse:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      client_id:
+                        type: string
+                        format: uuid
+                      product_id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      creation_date:
+                        type: string
+                        format: date-time
+                      update_date:
+                        type: string
+                        format: date-time
+                metadata:
+                  $ref: '#/components/schemas/MetadataResponse'
+            ContractRolesResponse:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      code:
+                        type: string
+                      description:
+                        type: string
+                      creation_date:
+                        type: string
+                        format: date-time
+                      update_date:
+                        type: string
+                        format: date-time
+                metadata:
+                  $ref: '#/components/schemas/MetadataResponse'
+            MetadataResponse:
+              type: object
+              properties:
+                pagination:
+                  type: object
+                  properties:
+                    page:
+                      type: integer
+                    limit:
+                      type: integer
+            UpdateContractRelResponse:
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+                contract_role_id:
+                  type: string
+                  format: uuid
+                contract_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                id:
+                  type: string
+                  format: uuid
+                update_date:
+                  type: string
+                  format: date-time
+                client_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date-time
+                person_id:
+                  type: string
+                  format: uuid
+            CreateContractResponse:
+              type: object
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                id:
+                  type: string
+                  format: uuid
+                update_date:
+                  type: string
+                  format: date-time
+                client_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum:
+                  - ACTIVE
+                  - INACTIVE
+                start_date:
+                  type: string
+                  format: date-time
+                person_id:
+                  type: string
+                  format: uuid
+                business_group:
+                  $ref: '#/components/schemas/BusinessGroupResponse'
+            ModuleGroupResponse:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                module:
+                  type: string
+                feature:
+                  type: string
+                group_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                update_date:
+                  type: string
+                  format: date-time
+            CreateContractRelResponse:
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+                contract_id:
+                  type: string
+                  format: uuid
+                contract_role_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                id:
+                  type: string
+                  format: uuid
+                update_date:
+                  type: string
+                  format: date-time
+                client_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date-time
+                person_id:
+                  type: string
+                  format: uuid
+            CreateContractRequest:
+              required:
+              - person_id
+              - product_id
+              - business_group_name
+              - start_date
+              type: object
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                person_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date-time
+                business_group_name:
+                  type: string
+            UpdateContractRequest:
+              required:
+              - business_group_name
+              type: object
+              properties:
+                business_group_name:
+                  type: string
+            BadRequestResponse:
+              type: object
+              properties:
+                error:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                    error_details:
+                      type: object
+                      properties:
+                        attribute:
+                          type: string
+                        message:
+                          type: string
+                    description:
+                      type: string
+                    id:
+                      type: string
+                      format: uuid
+            CreateContractRelRequest:
+              required:
+              - contract_id
+              - contract_role_code
+              - person_id
+              - start_date
+              type: object
+              properties:
+                contract_role_code:
+                  type: string
+                contract_id:
+                  type: string
+                  format: uuid
+                person_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date-time
+            DeactivateContractRequest:
+              required:
+              - end_date
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+            InternalServerErrorResponse:
+              type: object
+              properties:
+                error:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                    description:
+                      type: string
+                    id:
+                      type: string
+                      format: uuid
+            UnprocessableEntityResponse:
+              type: object
+              properties:
+                error:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                    description:
+                      type: string
+                    id:
+                      type: string
+                      format: uuid
+            ReadContractResponse:
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+                product_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                id:
+                  type: string
+                  format: uuid
+                update_date:
+                  type: string
+                  format: date-time
+                client_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum:
+                  - ACTIVE
+                  - INACTIVE
+                business_group_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date-time
+                person_id:
+                  type: string
+                  format: uuid
+            UpdateContractResponse:
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+                product_id:
+                  type: string
+                  format: uuid
+                creation_date:
+                  type: string
+                  format: date-time
+                id:
+                  type: string
+                  format: uuid
+                update_date:
+                  type: string
+                  format: date-time
+                client_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum:
+                  - ACTIVE
+                  - INACTIVE
+                start_date:
+                  type: string
+                  format: date-time
+                person_id:
+                  type: string
+                  format: uuid
+                business_group:
+                  $ref: '#/components/schemas/BusinessGroupResponse'
+            BusinessGroupResponse:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                product_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                creation_date:
+                  type: string
+                  format: date-time
+                update_date:
+                  type: string
+                  format: date-time
+                module_group:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ModuleGroupResponse'
+            DeactivateContractRelRequest:
+              required:
+              - end_date
+              type: object
+              properties:
+                end_date:
+                  type: string
+                  format: date-time
+            NotFoundResponse:
+              type: object
+              properties:
+                error:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                    description:
+                      type: string
+                    id:
+                      type: string
+                      format: uuid
+        x-amazon-apigateway-policy:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource:
+              Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+            Condition:
+              StringNotEquals:
+                aws:sourceVpc:
+                  Fn::FindInMap:
+                  - Network
+                  - Ref: Env
+                  - VpcId
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource:
+              Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+            Condition:
+              StringEquals:
+                aws:sourceVpc:
+                  Fn::FindInMap:
+                  - Network
+                  - Ref: Env
+                  - VpcId

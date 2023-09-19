@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Global API - API Gateway account.
+Description: API Gateway
 
 Parameters:
   Versao:
     Type: String
-    Default: 1
+    Default: 0
   Env:
     Description: Execution environment
     Type: String
@@ -17,31 +17,31 @@ Parameters:
   ServiceName:
     Description: ApiGw Service Name
     Type: String
-    Default: service-name
-  PlatformName:
-    Description: Platform Name (TAG)
+    Default: dockone
+  ApplicationName:
     Type: String
-    Default: plataform-name
-  ProductName:
-    Description: Product Name (TAG)
+    Default: lambda-go-autentication
+  OwnerName:
     Type: String
-    Default: product-name
+    Default: architecture
   ComponentName:
     Description: Component Name (TAG)
     Type: String
-    Default: component-name
-  ScopeName:
-    Description: Scope Type (pci,pci-conneted,non-pci)
+    Default: apigw
+  PciClassificationName:
     Type: String
     Default: non-pci
     AllowedValues:
       - pci
       - pci-connected
       - non-pci
-  SquadName:
-    Description: Squad Name (TAG)
+  BusinessUnitName:
     Type: String
-    Default: squad-name
+    Default: architecture
+  PlatformName:
+    Description: Platform Name (TAG)
+    Type: String
+    Default: plataform-01
 
 Conditions:
   IsPrd: !Equals 
@@ -89,18 +89,23 @@ Resources:
           Value: !Sub ${AWS::StackName}         
         - Key: name
           Value: !Ref ServiceName
+        - Key: resource
+          Value: api-gateway
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
         - Key: platform
           Value: !Ref  PlatformName
-        - Key: product
-          Value: !Ref ProductName
+        - Key: application
+          Value: !Ref ApplicationName
         - Key: component
           Value: !Ref ComponentName
-        - Key: scope
-          Value: !Ref ScopeName
-        - Key: squad
-          Value: !Ref SquadName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
         - Key: resource
           Value: usage-plan
+
       Throttle:
         BurstLimit:
           Fn::FindInMap:

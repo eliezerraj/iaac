@@ -14,13 +14,6 @@ Parameters:
   S3BucketName:
     Description: Bucket Name
     Type: String
-  LambdaArnOne:
-    Description: Inform the lambda ARN
-    Type: String
-    Default: ""
-
-Conditions:
-  IsLambdaArnOneInformed: !Not [!Equals [ !Ref LambdaArnOne, "" ]]
 
 Resources:
   S3Bucket:
@@ -31,7 +24,6 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
-
       Tags:
       - Key: env
         Value: !Ref Env
@@ -57,6 +49,27 @@ Resources:
               - !Sub arn:aws:s3:::${S3Bucket}/*
             Principal:
               '*'
+
+  S3BucketPolicyEnforceTLS:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+            Principal:
+              '*'
+            Condition:
+              Bool:
+                's3:SecureTransport':
+                  - "false"
+
 Outputs:
   BucketName:
     Value: !Ref S3Bucket

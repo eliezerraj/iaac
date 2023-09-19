@@ -5,7 +5,7 @@ Description: ApiGateway Resources Module
 Parameters:
   Versao:
     Type: String
-    Default: 1
+    Default: 0
   InternalDomainName:
     Description: ApiGw Endpoint URL 
     Type: String
