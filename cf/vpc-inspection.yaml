@@ -7,7 +7,7 @@ Parameters:
     Description: "IP Address range for the VPC"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.0.0/16"
+    Default: "100.0.0.0/18"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
     
@@ -16,7 +16,7 @@ Parameters:
     Description: "IP Address range for subnet-priv-A Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.0.0/19"
+    Default: "100.0.0.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   PUBACIDR:
@@ -24,7 +24,7 @@ Parameters:
     Description: "IP Address range for subnet-pub-A Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.96.0/21"
+    Default: "100.0.2.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   RESTRACIDR:
@@ -32,7 +32,7 @@ Parameters:
     Description: "IP Address range for subnet-rest-A Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.104.0/21"
+    Default: "100.0.4.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   ATTACIDR:
@@ -40,7 +40,7 @@ Parameters:
     Description: "IP Address range for subnet-attach-A Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.144.0/28"
+    Default: "100.0.6.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
 
@@ -49,7 +49,7 @@ Parameters:
     Description: "IP Address range for subnet-priv-B Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.32.0/19"
+    Default: "100.0.8.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   PUBBCIDR:
@@ -57,7 +57,7 @@ Parameters:
     Description: "IP Address range for subnet-pub-B Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.112.0/21"
+    Default: "100.0.10.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   RESTRBCIDR:
@@ -65,7 +65,7 @@ Parameters:
     Description: "IP Address range for subnet-rest-B Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.120.0/21"
+    Default: "100.0.12.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   ATTBCIDR:
@@ -73,7 +73,7 @@ Parameters:
     Description: "IP Address range for subnet-attach-B Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.144.16/28"
+    Default: "100.0.14.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
 
@@ -82,7 +82,7 @@ Parameters:
     Description: "IP Address range for subnet-priv-C Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.64.0/19"
+    Default: "100.0.16.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   PUBCCIDR:
@@ -90,7 +90,7 @@ Parameters:
     Description: "IP Address range for subnet-pub-C Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.128.0/21	"
+    Default: "100.0.18.0/23	"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   RESTRCCIDR:
@@ -98,7 +98,7 @@ Parameters:
     Description: "IP Address range for subnet-rest-C Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.136.0/21"
+    Default: "100.0.20.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   ATTCCIDR:
@@ -106,7 +106,7 @@ Parameters:
     Description: "IP Address range for subnet-attach-C Subnet"
     MinLength: "9"
     MaxLength: "18"
-    Default: "10.0.144.32/28"
+    Default: "100.0.22.0/23"
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
   
@@ -215,7 +215,7 @@ Resources:
           - !Ref AWS::NoValue
       Tags:
         - Key: Name
-          Value: !Sub "sub-${AWS::StackName}-restrict-a"
+          Value: !Sub "sub-${AWS::StackName}-insp-a"
   SubnetAttA:
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
@@ -253,7 +253,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
       - Key: Name
-        Value: !Sub "${AWS::StackName}-rt-restrict-A"
+        Value: !Sub "${AWS::StackName}-rt-insp-A"
   RTATTA:
     Type: 'AWS::EC2::RouteTable'
     Properties:
@@ -361,7 +361,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
       - Key: Name
-        Value: !Sub "nacl-vpc-${AWS::StackName}-restrict"
+        Value: !Sub "nacl-vpc-${AWS::StackName}-inspect"
   NACLRestrAllowAllIPv4In:
     Type: 'AWS::EC2::NetworkAclEntry'
     Properties:
@@ -466,7 +466,7 @@ Resources:
           - !Ref AWS::NoValue
       Tags:
         - Key: Name
-          Value: !Sub "sub-${AWS::StackName}-restrict-b"
+          Value: !Sub "sub-${AWS::StackName}-insp-b"
   SubnetAttB:
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
@@ -575,7 +575,7 @@ Resources:
           - !Ref AWS::NoValue
       Tags:
         - Key: Name
-          Value: !Sub "sub-${AWS::StackName}-restrict-c"
+          Value: !Sub "sub-${AWS::StackName}-insp-c"
   SubnetAttC:
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock

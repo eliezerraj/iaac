@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Kinesis Stream
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: kinesis-stream
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  ApplicationName:
+    Type: String
+    Default: log-stream
+  KinesisName:
+    Description: Kinesis Name
+    Type: String
+    Default: kinesis-log-stream
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  PlatformName:
+    Type: String
+    Default: my-plataform
+
+Resources:
+  KinesisStream: 
+      Type: AWS::Kinesis::Stream 
+      Properties: 
+          Name: !Ref KinesisName 
+          RetentionPeriodHours: 168 
+          ShardCount: 3
+          Tags:
+          - Key: env
+            Value: !Ref Env
+          - Key: stack
+            Value: !Sub ${AWS::StackName}
+          - Key: name
+            Value: !Ref KinesisName
+          - Key: resource
+            Value: kinesis
+          - Key: business_unit
+            Value: !Ref BusinessUnitName
+          - Key: platform
+            Value: !Ref PlatformName
+          - Key: application
+            Value: !Ref ApplicationName
+          - Key: component
+            Value: !Ref ComponentName
+          - Key: pci_classification
+            Value: !Ref PciClassificationName
+          - Key: owner
+            Value: !Ref OwnerName
+
+Outputs:
+  KinesisStreamARN:
+    Value: !GetAtt 'KinesisStream.Arn'
