@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack for Firehose DeliveryStream S3 Destination.
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: kinesis-lambda1-log-stream
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  ApplicationName:
+    Type: String
+    Default: kinesis-lambda1-log-stream
+  KinesisName:
+    Description: Kinesis Firehose Name
+    Type: String
+    Default: kinesis-log-stream
+  KinesisStreamARN:
+    Description: source KinesisStreamARN
+    Type: String
+    Default: arn:aws:kinesis:us-east-2:908671954593:stream/kinesis-log-stream
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  PlatformName:
+    Type: String
+    Default: my-plataform
+  LambdaTransformationARN:
+    Type: String
+    Default: arn:aws:lambda:us-east-2:908671954593:function:lambda-go-firehore-transformation
+  S3BucketARN:
+    Type: String
+    Default: arn:aws:s3:::eliezer-908671954593-log-stream
+
+Resources:
+  KinesisFirehore:
+    DependsOn:
+      - DeliveryPolicy
+      - FirehoseLogStream
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Ref ComponentName
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration: 
+        KinesisStreamARN: !Ref KinesisStreamARN
+        RoleARN: !GetAtt DeliveryRole.Arn
+      ExtendedS3DestinationConfiguration:
+        CloudWatchLoggingOptions:
+          Enabled: yes
+          LogGroupName: !Ref FirehoseLogGroup
+          LogStreamName: !Ref FirehoseLogStream
+        BucketARN: !Ref S3BucketARN
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 50 
+        CompressionFormat: UNCOMPRESSED
+        Prefix: architecture/
+        RoleARN: !GetAtt DeliveryRole.Arn
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Parameters:
+                - ParameterName: LambdaArn
+                  ParameterValue: !Ref LambdaTransformationARN
+              Type: Lambda
+      Tags: 
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref ComponentName
+        - Key: resource
+          Value: kinesis-firehose
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
+
+  DeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Sub ${AWS::AccountId}
+
+  DeliveryPolicy:
+    DependsOn:
+      - FirehoseLogGroup
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: firehose_delivery_policy_arch-lambda1
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:AbortMultipartUpload'
+              - 's3:GetBucketLocation'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:PutObject'
+              - 'logs:putLogEvents'
+            Resource:
+              - !Join 
+                - ''
+                - - !Ref S3BucketARN
+                  - '*'
+              - !Join 
+                - ''
+                - - !Ref S3BucketARN
+                  - '/*'
+          - Effect: Allow
+            Action:
+              - 'lambda:InvokeFunction'
+              - 'lambda:GetFunctionConfiguration' 
+            Resource: !Ref LambdaTransformationARN
+          - Effect: Allow
+            Action:
+              - 'kinesis:DescribeStream'
+              - 'kinesis:GetShardIterator'
+              - 'kinesis:GetRecords' 
+              - 'kinesis:ListShards'  
+            Resource: !Ref KinesisStreamARN
+          - Effect: Allow
+            Action:
+              - 'logs:PutLogEvents'
+            Resource: !GetAtt FirehoseLogGroup.Arn
+
+      Roles:
+        - !Ref DeliveryRole
+
+  FirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: 
+        !Join 
+          - ''
+          - - '/aws/kinesisfirehose/'
+            - !Ref ComponentName
+      RetentionInDays: 7
+      Tags: 
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref ComponentName
+        - Key: resource
+          Value: cloudwatch log-group
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
+
+  FirehoseLogStream:
+    DependsOn:
+      - FirehoseLogGroup    
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogStreamName: !Ref ComponentName
+      LogGroupName: !Ref FirehoseLogGroup
+
+Outputs:
+  KinesisFirehoreARN:
+    Value: !GetAtt KinesisFirehore.Arn
