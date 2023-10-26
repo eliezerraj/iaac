@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack CloudWatch Filtering Subscription
+
+Parameters:
+  DestinationArn:
+    Type: String
+    Default: arn:aws:logs:us-east-2:908671954593:destination:PeopleFirehoseLogStreamDestination
+  FilterName:
+    Type: String
+    Default: persons-legal-person-read   
+  LogGroup:
+    Type: String
+    Default: "/aws/lambda/persons-legal-person-read"
+
+Resources:
+  SubscriptionFilter: 
+    Type: AWS::Logs::SubscriptionFilter
+    Properties: 
+      LogGroupName: !Ref LogGroup
+      Distribution: "Random"
+      FilterName: !Ref FilterName
+      FilterPattern: "" #"? levelname" #"{$.userIdentity.type = Root}"
+      DestinationArn: !Ref DestinationArn

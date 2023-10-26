@@ -42,7 +42,7 @@ Resources:
       Properties: 
           Name: !Ref KinesisName 
           RetentionPeriodHours: 168 
-          ShardCount: 3
+          ShardCount: 1
           Tags:
           - Key: env
             Value: !Ref Env

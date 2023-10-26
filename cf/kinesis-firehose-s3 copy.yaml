@@ -68,7 +68,7 @@ Resources:
         BucketARN: !Ref S3BucketARN
         BufferingHints:
           IntervalInSeconds: 60
-          SizeInMBs: 64
+          SizeInMBs: 50
         CompressionFormat: UNCOMPRESSED
         Prefix: people/component_name=!{partitionKeyFromQuery:subscriptionFilters}/!{timestamp:yyyy/MM/dd}/
         ErrorOutputPrefix: error/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/
@@ -85,20 +85,23 @@ Resources:
                   ParameterValue: "{subscriptionFilters:.subscriptionFilters[0]}"
                 - ParameterName: JsonParsingEngine
                   ParameterValue: JQ-1.6
-            - Type: Lambda
-              Parameters:
-                - ParameterName: LambdaArn
-                  ParameterValue: !Ref LambdaTransformationARN
         CloudWatchLoggingOptions:
           Enabled: yes
           LogGroupName: !Ref FirehoseLogGroup
           LogStreamName: !Ref FirehoseLogStream
-        RoleARN: !GetAtt DeliveryRole.Arn
        # Prefix: !Join 
        #     - ''
        #     - - !Ref Prefix
        #       - '/'
        #       - !Ref PartitionKey
+        RoleARN: !GetAtt DeliveryRole.Arn
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Parameters:
+                - ParameterName: LambdaArn
+                  ParameterValue: !Ref LambdaTransformationARN
+              Type: Lambda
       Tags: 
         - Key: env
           Value: !Ref Env
