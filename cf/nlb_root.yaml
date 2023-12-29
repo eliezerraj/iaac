@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: creation of nlb
+Description: "Template to create NLB nested stack: nlb_template.yaml"
 
 Parameters:
   Versao:

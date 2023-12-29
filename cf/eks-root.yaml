@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Template to create Cluster and NodeGroup EKS nested stack: eks-template.yaml/eks-template-node.yaml"
+
+Parameters:
+  Versao:
+    Type: String
+  Env:
+    Type: String  
+  TemplateURL:
+    Type: String
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template.yaml
+  TemplateNodeURL:
+    Type: String
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template-node.yaml
+
+Mappings:
+  eksCluster:
+    dev:
+      version: 1.28
+      clusterName: 'arch-eks-01'
+      templateVersionFargate: 14.0.0
+  eksNodeGroup:
+    dev:
+      eksNodeGroupLaunchTemplateVersion: 11.0.0
+      # get last AMI : aws ssm get-parameter --name /aws/service/bottlerocket/aws-k8s-1.28/x86_64/latest/image_id --region us-east-2 --query "Parameter.Value" --output text
+      Ami: ami-0e4a6ad1df7519d3b 
+      InstanceType: t3.medium
+      NodeGroupMaxNodes: '10'
+      NodeGroupMinNodes: '3'
+      NodeGroupDesiredNodes: '3'
+
+  Tag:
+    CloudProvider:
+      value: aws
+    Application:
+      value: arch-eks-01
+    BusinessUnitName:
+      value: arch
+    Component:
+      value: arch
+    Owner:
+      value: architecture
+    Platform:
+      value: arch
+    Squad:
+      value: architecture
+    Email:
+      value: squad-archtecture
+    Slack:
+      value: priv-squad-architecture
+    Service:
+      value: arch-eks-01
+
+  network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+
+Conditions: 
+  isPrd: !Equals [!Ref Env, prd]
+
+  isDevOrHml: !Or
+    - !Equals [!Ref Env, dev]
+    - !Equals [!Ref Env, hml]
+
+Resources:
+  eksCluster:
+    Condition: isDevOrHml
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: !If [isPrd, pci, non-pci ]
+        PCIScope: !If [isPrd, true, false ]
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Stack: !Sub ${AWS::StackName}
+        Service: !FindInMap [ Tag, Service, value ]             
+        ClusterName: !FindInMap [ eksCluster, !Ref Env, clusterName ]
+        ClusterVersion: !FindInMap [ eksCluster, !Ref Env, version ]
+        VpcId: !FindInMap [ network, !Ref Env, VpcId ] 
+        CidrIp: !FindInMap [ network, !Ref Env, VpcCidr ]
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, !Ref Env, SubnetAZA ]
+              - !FindInMap [ network, !Ref Env, SubnetAZB ]
+              - !FindInMap [ network, !Ref Env, SubnetAZC ]
+      TemplateURL: !Ref TemplateURL
+ 
+  nodeEksWorkers:
+    Condition: isDevOrHml
+    DependsOn:
+      - eksCluster
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        NodeGroupMinNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupMinNodes ]
+        NodeGroupMaxNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupMaxNodes ]
+        NodeGroupDesiredNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupDesiredNodes ]
+        ImageId: !FindInMap [ eksNodeGroup, !Ref Env, Ami]
+        InstanceType: !FindInMap [ eksNodeGroup, !Ref Env, InstanceType ]
+        KeyPairName: !Sub arch-eks-02-${Env}-k8s
+        VolumeSize: 30        
+        NodegroupName: arch-eks-02-node-group-1-27
+        ClusterCertificateAuthorityData: !GetAtt eksCluster.Outputs.ClusterCertificateAuthorityData
+        ClusterStackName: !GetAtt eksCluster.Outputs.ClusterStackName
+        CidrIp: !FindInMap [ network, !Ref Env, VpcCidr ]
+        VpcId: !FindInMap [ network, !Ref Env, VpcId ] 
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, !Ref Env, SubnetAZA ]
+              - !FindInMap [ network, !Ref Env, SubnetAZB ]
+              - !FindInMap [ network, !Ref Env, SubnetAZC ]
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: !If [isPrd, pci, non-pci ]
+        PCIScope: !If [isPrd, true, false ]
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Service: !FindInMap [ Tag, Service, value ]
+      TemplateURL: !Ref TemplateNodeURL
