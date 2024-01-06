@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Global API - API Gateway account
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+
+Mappings:
+  Throttle:
+    DefaultRate:
+      value: 1000
+    DefaultBurst:
+      value: 1000
+  Tag:
+    CloudProvider:
+      value: aws
+    Application:
+      value: go-api-global
+    BusinessUnitName:
+      value: banking
+    Component:
+      value: go-api-global
+    Owner:
+      value: architecture
+    Platform:
+      value: dockone     
+
+Resources:
+  ApiGwAccountConfig:
+    Type: "AWS::ApiGateway::Account"
+    Properties:
+      CloudWatchRoleArn: !GetAtt "ApiGatewayLoggingRole.Arn"
+  ApiGatewayLoggingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+
+  GlobalAPIUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: GlobalAPIUsagePlan   
+      Description: UsagePlan to configuration Throttle in ApiGateway.
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: CloudProvider
+          Value: !FindInMap [ Tag, CloudProvider, value ]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: Application
+          Value: !FindInMap [ Tag, Application, value ]
+        - Key: BusinessUnitName
+          Value: !FindInMap [ Tag, BusinessUnitName, value ]
+        - Key: Owner
+          Value: !FindInMap [ Tag, Owner, value ]
+        - Key: Platform
+          Value: !FindInMap [ Tag, Platform, value ]
+        - Key: Component
+          Value: go-api-global
+        - Key: PCIClassification
+          Value: non-pci
+        - Key: PCIScope
+          Value: false
+      Throttle: 
+        BurstLimit: !FindInMap [ Throttle, DefaultRate, value ]
+        RateLimit: !FindInMap [ Throttle, DefaultBurst, value ]   
+      # ApiStages:
+      #   #Example
+      #   - ApiId: 07gc9h145c
+      #     Stage: Live
+      #     Throttle:
+      #       "/receipts/GET":
+      #         BurstLimit: 5
+      #         RateLimit: 10             

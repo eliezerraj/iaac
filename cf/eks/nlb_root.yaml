@@ -31,18 +31,10 @@ Mappings:
       SubnetAZA: subnet-0ca2d45be9d6ab5bc
       SubnetAZB: subnet-0b2b57acbb1da0623
       SubnetAZC: subnet-05d3e7f4611c12a23
-      CertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/9de4de50-a18e-451c-961b-274559a8bde7
+      CertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
       HostedZoneId: Z08808671BQOU9WUREDU
       DomainName: ingnlb.architecture.caradhras.io
-    hml:
-      VpcId: vpc-053bf362926211174
-      VpcCidr: 10.213.0.0/16
-      SubnetAZA: subnet-0fb3b86a8657a696f
-      SubnetAZB: subnet-0fb6727ed0041b799
-      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
-      CertificateArn: arn:aws:acm:us-east-2:507624287112:certificate/29a24e28-be7e-43dd-937a-bad9626c7ce8
-      HostedZoneId: Z0122816CCG7PS5P0699
-      DomainName: eks.global.eitri.hml.caradhras.io
+
   Tag:
     Service:
       value: eks  
