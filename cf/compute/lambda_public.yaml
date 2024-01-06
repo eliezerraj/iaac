@@ -7,7 +7,6 @@ Parameters:
     Default: 0
   Env:
     Type: String
-    Default: dev
     AllowedValues:
       - dev
       - hml
@@ -15,16 +14,19 @@ Parameters:
   FunctionLambdaName:
     Description: Lambda Name
     Type: String
-    Default: lambda-go-autentication
+    Default: lambda-name
   ApplicationName:
     Type: String
     Default: lambda-go-autentication
   OwnerName:
-    Type: String
+    Type: 
     Default: architecture
   ComponentName:
     Type: String
     Default: lambda
+  PciScopeName:
+    Type: String
+    Default: false
   PciClassificationName:
     Type: String
     Default: non-pci
@@ -49,7 +51,7 @@ Parameters:
     Default: 3
   S3BucketParam:
     Type: String 
-    Default: account-a-884069944685-artifacts
+    Default: credit-a-884069944685-artifacts
   S3KeyParam:
     Type: String 
     Default: lambda-go-autentication/main.zip
@@ -61,7 +63,7 @@ Parameters:
   ManagedPolicyParameterTwo:
     Description: Inform policy ARN (opcional)
     Type: String 
-    Default: arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+    Default: ""
   ManagedPolicyParameterThree:
     Description: Inform policy ARN (opcional)
     Type: String 

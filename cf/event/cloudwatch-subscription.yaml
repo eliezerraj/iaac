@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Stack CloudWatch Filtering Subscription
+Description: Stack CloudWatch Filtering Subscription - cw-sub-munin-eks-dev
 
 Parameters:
   DestinationArn:
@@ -7,10 +7,10 @@ Parameters:
     Default: arn:aws:logs:us-east-2:908671954593:destination:PeopleFirehoseLogStreamDestination
   FilterName:
     Type: String
-    Default: persons-legal-person-read   
+    Default: munin-eks-dev
   LogGroup:
     Type: String
-    Default: "/aws/lambda/persons-legal-person-read"
+    Default: "/dock/eks/munin-eks-dev"
 
 Resources:
   SubscriptionFilter: 

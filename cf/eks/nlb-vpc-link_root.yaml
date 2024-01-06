@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Creation of VpcLink - Eitri
+Description: Creation of VpcLink
 
 Parameters:
   Env:
@@ -7,9 +7,10 @@ Parameters:
     Default: dev
   VpcLinkName:
     Type: String
+    Default: NLB-vpce-global
   LoadBalancerArn:
     Type: String
-    Default: arn:aws:elasticloadbalancing:us-east-2:908671954593:loadbalancer/net/go-hello-world-web-nlb-dev/c15b4e71c75a4ccb
+    Default: arn:aws:elasticloadbalancing:us-east-2:908671954593:loadbalancer/net/vpce-global-nlb-dev/8d531d1119f30e59
   TemplateURL:
     Type: String
     Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/nlb-vpc-link-template.yaml

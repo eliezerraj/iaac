@@ -1,0 +1,344 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template to create Cluster and NodeGroup EKS nested stack
+
+Parameters:
+  Versao:
+    Type: String
+  Env:
+    Type: String
+
+Mappings:
+  eksCluster:
+    dev:
+      version: 1.26
+      clusterName: 'munin-eks-dev'
+      templateVersionFargate: 14.0.0
+    hml:
+      version: 1.26
+      clusterName: 'munin-eks-hml'
+      templateVersionFargate: 14.0.0
+    prd-non-pci:
+      version: 1.26
+      clusterName: 'munin-eks-prd-non-pci'
+      templateVersionFargate: 14.0.0
+    prd-pci-connected:
+      version: 1.26
+      clusterName: 'munin-eks-prd-pci-connected'
+      templateVersionFargate: 14.0.0  
+  eksNodeGroup:
+    dev:
+      eksNodeGroupLaunchTemplateVersion: 11.0.0
+      Ami: ami-01ccce221a8b5e082 
+      InstanceType: t3.large
+      NodeGroupMaxNodes: '10'
+      NodeGroupMinNodes: '3'
+      NodeGroupDesiredNodes: '3'
+    hml:
+      eksNodeGroupLaunchTemplateVersion: 11.0.0
+      Ami: ami-01ccce221a8b5e082
+      InstanceType: t3.large
+      NodeGroupMaxNodes: '10'
+      NodeGroupMinNodes: '3'
+      NodeGroupDesiredNodes: '3'      
+    prd-non-pci:
+      eksNodeGroupLaunchTemplateVersion: 11.0.0
+      Ami: ami-081e683da28116087
+      InstanceType: c5.xlarge
+      NodeGroupMaxNodes: '10'
+      NodeGroupMinNodes: '3'
+      NodeGroupDesiredNodes: '3'
+    prd-pci-connected:
+      eksNodeGroupLaunchTemplateVersion: 11.0.0
+      Ami: ami-081e683da28116087
+      InstanceType: c5.xlarge
+      NodeGroupMaxNodes: '10'
+      NodeGroupMinNodes: '3'
+      NodeGroupDesiredNodes: '3'
+  network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+    hml:
+      VpcId: vpc-053bf362926211174
+      VpcCidr: 10.213.0.0/16
+      SubnetAZA: subnet-0fb3b86a8657a696f
+      SubnetAZB: subnet-0fb6727ed0041b799
+      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+    prd-non-pci:
+      VpcId: vpc-05583dab4737e64fd
+      VpcCidr: 10.197.128.0/17
+      SubnetAZA: subnet-0a0c6c1b76845ca8a
+      SubnetAZB: subnet-0d2dc2da1fb208470
+      SubnetAZC: subnet-0446d425f47765e5b
+    prd-pci-connected:
+      VpcId: vpc-0fa3325d4843786ca
+      VpcCidr: 10.194.0.0/17
+      SubnetAZA: subnet-03ed2227d2b07dfa9
+      SubnetAZB: subnet-0b78395bdd4830972
+      SubnetAZC: subnet-009e5b0e1e95913de
+  
+  Tag:
+    CloudProvider:
+      value: aws
+    Application:
+      value: munin
+    BusinessUnitName:
+      value: banking
+    Component:
+      value: munin
+    Owner:
+      value: squad-maat
+    Platform:
+      value: dockone
+    Squad:
+      value: squad-maat
+    Email:
+      value: squad-maat
+    Slack:
+      value: priv-squad-maat
+    Service:
+      value: munin
+
+Conditions: 
+  isPrd: !Equals [!Ref Env, prd]
+
+  isDevOrHml: !Or
+    - !Equals [!Ref Env, dev]
+    - !Equals [!Ref Env, hml]
+
+Resources:
+  eksCluster:
+    Condition: isDevOrHml
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: non-pci
+        PCIScope: false
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Stack: !Sub ${AWS::StackName}
+        Service: !FindInMap [ Tag, Service, value ]                 
+        ClusterName: !FindInMap [ eksCluster, !Ref Env, clusterName ]
+        ClusterVersion: !FindInMap [ eksCluster, !Ref Env, version ]
+        VpcId: !FindInMap [ network, !Ref Env, VpcId ] 
+        CidrIp: !FindInMap [ network, !Ref Env, VpcCidr ]
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, !Ref Env, SubnetAZA ]
+              - !FindInMap [ network, !Ref Env, SubnetAZB ]
+              - !FindInMap [ network, !Ref Env, SubnetAZC ]
+      TemplateURL:
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-template-fargate/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksCluster, !Ref Env, templateVersionFargate ] }
+
+  MuninEksNodes:
+    Condition: isDevOrHml
+    DependsOn:
+      - eksCluster
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        NodeGroupMinNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupMinNodes ]
+        NodeGroupMaxNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupMaxNodes ]
+        NodeGroupDesiredNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupDesiredNodes ]
+        ImageId: !FindInMap [ eksNodeGroup, !Ref Env, Ami ]
+        InstanceType: !FindInMap [ eksNodeGroup, !Ref Env, InstanceType ]
+        KeyPairName: !Sub munin-${Env}-k8s
+        VolumeSize: 30        
+        NodegroupName: !Sub munin-${Env}-k8s
+        ClusterCertificateAuthorityData: !GetAtt eksCluster.Outputs.ClusterCertificateAuthorityData
+        ClusterStackName: !GetAtt eksCluster.Outputs.ClusterStackName
+        CidrIp: !FindInMap [ network, !Ref Env, VpcCidr ]
+        VpcId: !FindInMap [ network, !Ref Env, VpcId ] 
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, !Ref Env, SubnetAZA ]
+              - !FindInMap [ network, !Ref Env, SubnetAZB ]
+              - !FindInMap [ network, !Ref Env, SubnetAZC ]
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: non-pci
+        PCIScope: false
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Service: !FindInMap [ Tag, Service, value ]
+      TemplateURL: 
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-nodes-template/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksNodeGroup, !Ref Env, eksNodeGroupLaunchTemplateVersion ] }          
+  
+  #eks non pci
+  eksClusterNonPci:
+    Condition: isPrd
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: non-pci
+        PCIScope: false
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Stack: !Sub ${AWS::StackName}
+        Service: !FindInMap [ Tag, Service, value ]                  
+        ClusterName: !FindInMap [ eksCluster, prd-non-pci, clusterName ]
+        ClusterVersion: !FindInMap [ eksCluster, prd-non-pci, version ]
+        VpcId: !FindInMap [ network, prd-non-pci, VpcId ] 
+        CidrIp: !FindInMap [ network, prd-non-pci, VpcCidr ]
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, prd-non-pci, SubnetAZA ]
+              - !FindInMap [ network, prd-non-pci, SubnetAZB ]
+              - !FindInMap [ network, prd-non-pci, SubnetAZC ]
+      TemplateURL:
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-template-fargate/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksCluster, prd-non-pci, templateVersionFargate ] }
+
+  MuninEksNodesNonPci:
+    Condition: isPrd
+    DependsOn:
+      - eksClusterNonPci
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        NodeGroupMinNodes: !FindInMap [ eksNodeGroup, prd-non-pci, NodeGroupMinNodes ]
+        NodeGroupMaxNodes: !FindInMap [ eksNodeGroup, prd-non-pci, NodeGroupMaxNodes ]
+        NodeGroupDesiredNodes: !FindInMap [ eksNodeGroup, prd-non-pci, NodeGroupDesiredNodes ]
+        ImageId: !FindInMap [ eksNodeGroup, prd-non-pci, Ami ]
+        InstanceType: !FindInMap [ eksNodeGroup, prd-non-pci, InstanceType ]
+        KeyPairName: !Sub munin-${Env}-k8s
+        VolumeSize: 30        
+        NodegroupName: munin-workers-non-pci
+        ClusterCertificateAuthorityData: !GetAtt eksClusterNonPci.Outputs.ClusterCertificateAuthorityData
+        ClusterStackName: !GetAtt eksClusterNonPci.Outputs.ClusterStackName
+        CidrIp: !FindInMap [ network, prd-non-pci, VpcCidr ]
+        VpcId: !FindInMap [ network, prd-non-pci, VpcId ] 
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, prd-non-pci, SubnetAZA ]
+              - !FindInMap [ network, prd-non-pci, SubnetAZB ]
+              - !FindInMap [ network, prd-non-pci, SubnetAZC ]
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: non-pci
+        PCIScope: false
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Service: !FindInMap [ Tag, Service, value ]
+      TemplateURL: 
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-nodes-template/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksNodeGroup, prd-non-pci, eksNodeGroupLaunchTemplateVersion ] }          
+  
+  #eks pci connected
+  eksClusterPciConnected:
+    Condition: isPrd
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: pci-connected
+        PCIScope: true
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Stack: !Sub ${AWS::StackName}
+        Service: !FindInMap [ Tag, Service, value ]              
+        ClusterName: !FindInMap [ eksCluster, prd-pci-connected, clusterName ]
+        ClusterVersion: !FindInMap [ eksCluster, prd-pci-connected, version ]
+        VpcId: !FindInMap [ network, prd-pci-connected, VpcId ] 
+        CidrIp: !FindInMap [ network, prd-pci-connected, VpcCidr ]
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, prd-pci-connected, SubnetAZA ]
+              - !FindInMap [ network, prd-pci-connected, SubnetAZB ]
+              - !FindInMap [ network, prd-pci-connected, SubnetAZC ]
+      TemplateURL:
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-template-fargate/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksCluster, prd-pci-connected, templateVersionFargate ] }
+
+  MuninEksNodesPciConnected:
+    Condition: isPrd
+    DependsOn:
+      - eksClusterPciConnected
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        NodeGroupMinNodes: !FindInMap [ eksNodeGroup, prd-pci-connected, NodeGroupMinNodes ]
+        NodeGroupMaxNodes: !FindInMap [ eksNodeGroup, prd-pci-connected, NodeGroupMaxNodes ]
+        NodeGroupDesiredNodes: !FindInMap [ eksNodeGroup, prd-pci-connected, NodeGroupDesiredNodes ]
+        ImageId: !FindInMap [ eksNodeGroup, prd-pci-connected, Ami ]
+        InstanceType: !FindInMap [ eksNodeGroup, prd-pci-connected, InstanceType ]
+        KeyPairName: !Sub munin-${Env}-k8s
+        VolumeSize: 30        
+        NodegroupName: munin-workers-pci-connected
+        ClusterCertificateAuthorityData: !GetAtt eksClusterPciConnected.Outputs.ClusterCertificateAuthorityData
+        ClusterStackName: !GetAtt eksClusterPciConnected.Outputs.ClusterStackName
+        CidrIp: !FindInMap [ network, prd-pci-connected, VpcCidr ]
+        VpcId: !FindInMap [ network, prd-pci-connected, VpcId ] 
+        SubnetIds:
+          !Join
+            - ','
+            - - !FindInMap [ network, prd-pci-connected, SubnetAZA ]
+              - !FindInMap [ network, prd-pci-connected, SubnetAZB ]
+              - !FindInMap [ network, prd-pci-connected, SubnetAZC ]
+        Env: !Ref Env
+        CloudProvider: !FindInMap [ Tag, CloudProvider, value ]
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: pci-connected
+        PCIScope: true
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
+        Slack: !FindInMap [ Tag, Slack, value ]
+        Email: !FindInMap [ Tag, Email, value ]
+        Service: !FindInMap [ Tag, Service, value ]
+      TemplateURL: 
+        !Sub
+          - "https://docktech-cloudformation-templates.s3.us-east-2.amazonaws.com/aws-cfn-eks-nodes-template/${version}/cloudformation-${version}.yml"
+          - { version: !FindInMap [ eksNodeGroup, prd-pci-connected, eksNodeGroupLaunchTemplateVersion ] }          

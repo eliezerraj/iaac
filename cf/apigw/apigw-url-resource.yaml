@@ -53,7 +53,7 @@ Resources:
   ApiGwLogGroupPrivate:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /apigateway/apigw-go-hello-world-web
+      LogGroupName: /apigateway/go-api-global
       RetentionInDays: 90
       Tags:
       - Key: env
