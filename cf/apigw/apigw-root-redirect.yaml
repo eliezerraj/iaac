@@ -378,7 +378,7 @@ Resources:
               - lambda-go-auth-apigw: []
               x-amazon-apigateway-integration:
                 type: http_proxy
-                httpMethod: GET
+                httpMethod: POST
                 uri:
                   Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
                 responses:
@@ -437,7 +437,7 @@ Resources:
               - lambda-go-auth-apigw: []
               x-amazon-apigateway-integration:
                 type: http_proxy
-                httpMethod: GET
+                httpMethod: POST
                 uri:
                   Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
                 responses:
@@ -496,7 +496,7 @@ Resources:
               - lambda-go-auth-apigw: []
               x-amazon-apigateway-integration:
                 type: http_proxy
-                httpMethod: GET
+                httpMethod: POST
                 uri:
                   Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
                 responses:
