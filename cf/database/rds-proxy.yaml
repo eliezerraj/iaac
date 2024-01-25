@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: RDS Proxy IaC
+
+Parameters:
+  Versao:
+    Type: String
+
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+
+  Squad:
+    Type: String
+    Default: architecture
+
+  Slack:
+    Type: String
+    Default: architecture
+
+  Email:
+    Type: String
+    Default: architecture
+
+Mappings:
+  Network:
+    dev:
+      SgRDS: sg-007cb193e844ca353
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+    hml:
+      SgRDS: sg-02c4c3c569c15d247
+      SubnetAZA: subnet-0fb3b86a8657a696f
+      SubnetAZB: subnet-0fb6727ed0041b799
+      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+    prd:
+      SgRDS: sg-0dd174ff6c26d0e52
+      SubnetAZA: subnet-0a0c6c1b76845ca8a
+      SubnetAZB: subnet-0d2dc2da1fb208470
+      SubnetAZC: subnet-0446d425f47765e5b
+
+  RDS:
+    dev:
+      RDSIdentifier: db-arch
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+    hml:
+      RDSIdentifier: db-arch-hml
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+    prd:
+      RDSIdentifier: db-arch-prd
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+
+  Proxy:
+    dev:  
+      RDSProxyIdentifier: rds-proxy-db-arch
+      RDSProxyIdleClientTimeout: 3600
+      RDSProxyMaxConnectionsPercent: 90
+      RDSProxyMaxIdleConnectionsPercent: 50
+    hml:
+      RDSProxyIdentifier: rds-proxy-db-arch-hml
+      RDSProxyIdleClientTimeout: 3600
+      RDSProxyMaxConnectionsPercent: 90
+      RDSProxyMaxIdleConnectionsPercent: 50
+    prd:
+      RDSProxyIdentifier: rds-proxy-db-arch-prd
+      RDSProxyIdleClientTimeout: 3600
+      RDSProxyMaxConnectionsPercent: 90
+      RDSProxyMaxIdleConnectionsPercent: 50
+
+Resources:
+  RDSProxy:
+    Type: AWS::RDS::DBProxy
+    Properties:
+      DBProxyName: !FindInMap [Proxy, !Ref Env, RDSProxyIdentifier]
+      Auth:
+        - AuthScheme: SECRETS
+          Description: arch-database-password
+          IAMAuth: DISABLED
+          SecretArn: !FindInMap [RDS, !Ref Env, RDSSecretManagerArn]
+      EngineFamily: POSTGRESQL
+      DebugLogging: false
+      IdleClientTimeout: !FindInMap [Proxy, !Ref Env, RDSProxyIdleClientTimeout]
+      RequireTLS: true
+      RoleArn: !GetAtt RDSProxyRole.Arn
+      VpcSecurityGroupIds:
+        - !FindInMap [Network, !Ref Env, SgRDS]
+      VpcSubnetIds:
+        - !FindInMap [Network, !Ref Env, SubnetAZA]
+        - !FindInMap [Network, !Ref Env, SubnetAZB]
+        - !FindInMap [Network, !Ref Env, SubnetAZC]
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: rds-proxy-iac
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !Ref Squad
+        - Key: slack
+          Value: !Ref Slack
+        - Key: email
+          Value: !Ref Email
+        - Key: resource
+          Value: iam-role
+  
+  RDSProxyRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: db-arch-rds-proxy-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "rds.amazonaws.com"
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: db-arch-rds-proxy-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                - "secretsmanager:GetSecretValue"
+                - "secretsmanager:DescribeSecret"
+                Resource: !FindInMap [RDS, !Ref Env, RDSSecretManagerArn]
+                Effect: Allow
+              - Action:
+                - "kms:Decrypt"
+                - "kms:DescribeKey"
+                Resource: "*"
+                Effect: Allow
+
+  RDSProxyTargetGroup:
+    Type: AWS::RDS::DBProxyTargetGroup
+    Properties:
+      TargetGroupName: default
+      DBProxyName: !Ref RDSProxy
+      DBInstanceIdentifiers: 
+        - !FindInMap [ RDS, !Ref Env, RDSIdentifier ]
+      ConnectionPoolConfigurationInfo:
+        MaxConnectionsPercent: !FindInMap [Proxy, !Ref Env, RDSProxyMaxConnectionsPercent ]
+        MaxIdleConnectionsPercent: !FindInMap [Proxy, !Ref Env, RDSProxyMaxIdleConnectionsPercent]

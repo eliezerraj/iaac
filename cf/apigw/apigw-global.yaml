@@ -78,11 +78,10 @@ Resources:
       Throttle: 
         BurstLimit: !FindInMap [ Throttle, DefaultRate, value ]
         RateLimit: !FindInMap [ Throttle, DefaultBurst, value ]   
-      # ApiStages:
-      #   #Example
-      #   - ApiId: 07gc9h145c
-      #     Stage: Live
-      #     Throttle:
-      #       "/receipts/GET":
-      #         BurstLimit: 5
-      #         RateLimit: 10             
+      ApiStages:
+         - ApiId: 07gc9h145c
+           Stage: Live
+           Throttle:
+            "/receipts/GET":
+              BurstLimit: 5
+              RateLimit: 10             
