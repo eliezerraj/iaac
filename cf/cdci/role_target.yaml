@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A CloudFormation template that creates a cross-account role that can be assumed by the source (shared services) account.
+
+Parameters:
+  SourceAccount: 
+    Description: Source AWS account ID 
+    Type: String
+    Default: 908671954593
+
+  S3Bucket:
+    Description: S3 Bucket that the shared account needs access to
+    Type: String
+    Default: eliezerraj-992382474575-codepipeline
+  
+Resources:
+  CrossTargetAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: crossaccount-target-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${SourceAccount}:root
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: S3BucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:Get*
+                  - s3:List*
+                  - s3:PutObject*
+                  - s3:DeleteObject*
+                Resource:
+                  - !Sub arn:aws:s3:::${S3Bucket}/*
+                  - !Sub arn:aws:s3:::${S3Bucket}
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: "*"
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:*
+                Resource: "*"
+
+Outputs:
+  CrossTargetAccountRole:
+    Value: !GetAtt 'CrossTargetAccountRole.Arn'

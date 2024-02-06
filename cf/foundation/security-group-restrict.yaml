@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SecurityGroup template
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd 
+  GroupName:
+    Type: String
+    Default: sec-grp-vpc-dev-restrict
+  CidrIp:
+    Description: "Please specify CIDR Block of VPC"  
+    Type: String
+    Default: 10.214.0.0/16
+  VpcId:
+    Type: String
+    Default: vpc-0df31a6e2d113d8b7  
+  Squad:
+    Type: String
+    Default: architecture
+
+Resources:
+  SecGrpRestric:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'security group restrict subnet'
+      GroupName: !Ref GroupName
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: 
+      - CidrIp: !Ref CidrIp
+        FromPort: 5432
+        IpProtocol: tcp
+        ToPort: 5432
+        Description: "Allow access local VPC to RDS"        
+      - CidrIp: 10.255.128.0/19
+        FromPort: 0
+        IpProtocol: '-1'
+        ToPort: 65535
+        Description: "Allow access to VPN"
+      SecurityGroupEgress: 
+      - Description: Allow outbound traffic
+        IpProtocol: '-1'
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: Name
+          Value: !Ref GroupName
+        - Key: squad
+          Value: !Ref Squad

@@ -1,0 +1,152 @@
+{
+    "pipeline": {
+        "name": "go-worker-debit",
+        "roleArn": "arn:aws:iam::908671954593:role/service-role/AWSCodePipelineServiceRole-us-east-2-go-worker-debit",
+        "artifactStore": {
+            "type": "S3",
+            "location": "codepipeline-us-east-2-237656914886"
+        },
+        "stages": [
+            {
+                "name": "Source",
+                "actions": [
+                    {
+                        "name": "Source",
+                        "actionTypeId": {
+                            "category": "Source",
+                            "owner": "AWS",
+                            "provider": "CodeStarSourceConnection",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "BranchName": "main",
+                            "ConnectionArn": "arn:aws:codestar-connections:us-east-2:908671954593:connection/f2c0bb86-e58c-4446-a637-6c1b77b5b0d9",
+                            "DetectChanges": "false",
+                            "FullRepositoryId": "eliezerraj/go-worker-debit",
+                            "OutputArtifactFormat": "CODE_ZIP"
+                        },
+                        "outputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "inputArtifacts": [],
+                        "region": "us-east-2",
+                        "namespace": "SourceVariables"
+                    }
+                ]
+            },
+            {
+                "name": "Deploy",
+                "actions": [
+                    {
+                        "name": "Deploy",
+                        "actionTypeId": {
+                            "category": "Deploy",
+                            "owner": "AWS",
+                            "provider": "CloudFormation",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "ActionMode": "CREATE_UPDATE",
+                            "Capabilities": "CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND",
+                            "ParameterOverrides": "  {\n\"ServiceAccountName\": \"sa-go-worker-debit\",\n\"Env\": \"dev\",\n\"Versao\":\"0.1\"\n  }",
+                            "RoleArn": "arn:aws:iam::908671954593:role/CloudFormation-Architecture-Eliezer",
+                            "StackName": "oidc-go-worker-debit",
+                            "TemplatePath": "SourceArtifact::oidc-role-go-worker-debit.yaml"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2",
+                        "namespace": "DeployVariables"
+                    }
+                ]
+            },
+            {
+                "name": "Build_Image",
+                "actions": [
+                    {
+                        "name": "Build_Image",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"AWS_ACCOUNT_ID\",\"value\":\"908671954593\",\"type\":\"PLAINTEXT\"},{\"name\":\"IMAGE_TAG\",\"value\":\"latest\",\"type\":\"PLAINTEXT\"},{\"name\":\"IMAGE_REPO_NAME\",\"value\":\"go-worker-debit\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-worker-debit-v2"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    }
+                ]
+            },
+            {
+                "name": "Deploy_Manifests",
+                "actions": [
+                    {
+                        "name": "Deploy_Manifests",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_CLUSTER_NAME\",\"value\":\"arch-eks\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_KUBECTL_ROLE_ARN\",\"value\":\"arn:aws:iam::908671954593:role/CodeBuildKubectlRole\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-worker-debit-v2-manifests"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    },
+                    {
+                        "name": "Deploy_Manifests-EKS-01",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_CLUSTER_NAME\",\"value\":\"arch-eks-01\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_KUBECTL_ROLE_ARN\",\"value\":\"arn:aws:iam::908671954593:role/CodeBuildKubectlRole\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-worker-debit-v2-manifests"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    }
+                ]
+            }
+        ],
+        "version": 4
+    },
+    "metadata": {
+        "pipelineArn": "arn:aws:codepipeline:us-east-2:908671954593:go-worker-debit",
+        "created": 1702669993.489,
+        "updated": 1703878906.043
+    }
+}

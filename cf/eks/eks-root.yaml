@@ -4,20 +4,28 @@ Description: "Template to create Cluster and NodeGroup EKS nested stack: eks-tem
 Parameters:
   Versao:
     Type: String
+    Default: 1
   Env:
-    Type: String  
+    Type: String
+    Default: dev
+  KeyPairName:
+    Type: String
+    Default: arch-eks-02-dev-k8s
+  NodegroupName:
+    Type: String
+    Default: arch-eks-02-node-group-1-28
   TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template.yaml
+    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-992382474575-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template.yaml
   TemplateNodeURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template-node.yaml
+    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-992382474575-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-template-node.yaml
 
 Mappings:
   eksCluster:
     dev:
       version: 1.28
-      clusterName: 'arch-eks-01'
+      clusterName: 'arch-eks-02'
       templateVersionFargate: 14.0.0
   eksNodeGroup:
     dev:
@@ -28,12 +36,19 @@ Mappings:
       NodeGroupMaxNodes: '10'
       NodeGroupMinNodes: '3'
       NodeGroupDesiredNodes: '3'
+  network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
 
   Tag:
     CloudProvider:
       value: aws
     Application:
-      value: arch-eks-01
+      value: arch-eks-02
     BusinessUnitName:
       value: arch
     Component:
@@ -49,15 +64,7 @@ Mappings:
     Slack:
       value: priv-squad-architecture
     Service:
-      value: arch-eks-01
-
-  network:
-    dev:
-      VpcId: vpc-0df31a6e2d113d8b7
-      VpcCidr: 10.214.0.0/16
-      SubnetAZA: subnet-0ca2d45be9d6ab5bc
-      SubnetAZB: subnet-0b2b57acbb1da0623
-      SubnetAZC: subnet-05d3e7f4611c12a23
+      value: arch-eks-02
 
 Conditions: 
   isPrd: !Equals [!Ref Env, prd]
@@ -110,9 +117,9 @@ Resources:
         NodeGroupDesiredNodes: !FindInMap [ eksNodeGroup, !Ref Env, NodeGroupDesiredNodes ]
         ImageId: !FindInMap [ eksNodeGroup, !Ref Env, Ami]
         InstanceType: !FindInMap [ eksNodeGroup, !Ref Env, InstanceType ]
-        KeyPairName: !Sub arch-eks-02-${Env}-k8s
+        KeyPairName: !Ref KeyPairName
         VolumeSize: 30        
-        NodegroupName: arch-eks-02-node-group-1-27
+        NodegroupName: !Ref NodegroupName
         ClusterCertificateAuthorityData: !GetAtt eksCluster.Outputs.ClusterCertificateAuthorityData
         ClusterStackName: !GetAtt eksCluster.Outputs.ClusterStackName
         CidrIp: !FindInMap [ network, !Ref Env, VpcCidr ]

@@ -5,9 +5,11 @@ Description: RDS Proxy IaC
 Parameters:
   Versao:
     Type: String
+    Default: 1
 
   Env:
     Type: String
+    Default: dev
     AllowedValues:
       - dev
       - hml
@@ -28,25 +30,25 @@ Parameters:
 Mappings:
   Network:
     dev:
-      SgRDS: sg-007cb193e844ca353
+      SgRDS: sg-0eec7b010b760677d
       SubnetAZA: subnet-0ca2d45be9d6ab5bc
       SubnetAZB: subnet-0b2b57acbb1da0623
       SubnetAZC: subnet-05d3e7f4611c12a23
     hml:
-      SgRDS: sg-02c4c3c569c15d247
+      SgRDS: sg-0eec7b010b760677d
       SubnetAZA: subnet-0fb3b86a8657a696f
       SubnetAZB: subnet-0fb6727ed0041b799
       SubnetAZC: subnet-0c45c1b6d9ba2cfc5
     prd:
-      SgRDS: sg-0dd174ff6c26d0e52
+      SgRDS: sg-0eec7b010b760677d
       SubnetAZA: subnet-0a0c6c1b76845ca8a
       SubnetAZB: subnet-0d2dc2da1fb208470
       SubnetAZC: subnet-0446d425f47765e5b
 
   RDS:
     dev:
-      RDSIdentifier: db-arch
-      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+      RDSIdentifier: db-arch-02
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy:password"
     hml:
       RDSIdentifier: db-arch-hml
       RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
@@ -56,17 +58,17 @@ Mappings:
 
   Proxy:
     dev:  
-      RDSProxyIdentifier: rds-proxy-db-arch
+      RDSProxyIdentifier: rds-proxy-db-arch-02
       RDSProxyIdleClientTimeout: 3600
       RDSProxyMaxConnectionsPercent: 90
       RDSProxyMaxIdleConnectionsPercent: 50
     hml:
-      RDSProxyIdentifier: rds-proxy-db-arch-hml
+      RDSProxyIdentifier: rds-proxy-db-arch-02-hml
       RDSProxyIdleClientTimeout: 3600
       RDSProxyMaxConnectionsPercent: 90
       RDSProxyMaxIdleConnectionsPercent: 50
     prd:
-      RDSProxyIdentifier: rds-proxy-db-arch-prd
+      RDSProxyIdentifier: rds-proxy-db-arch-02-prd
       RDSProxyIdleClientTimeout: 3600
       RDSProxyMaxConnectionsPercent: 90
       RDSProxyMaxIdleConnectionsPercent: 50
@@ -82,9 +84,9 @@ Resources:
           IAMAuth: DISABLED
           SecretArn: !FindInMap [RDS, !Ref Env, RDSSecretManagerArn]
       EngineFamily: POSTGRESQL
-      DebugLogging: false
+      DebugLogging: true
       IdleClientTimeout: !FindInMap [Proxy, !Ref Env, RDSProxyIdleClientTimeout]
-      RequireTLS: true
+      RequireTLS: false
       RoleArn: !GetAtt RDSProxyRole.Arn
       VpcSecurityGroupIds:
         - !FindInMap [Network, !Ref Env, SgRDS]

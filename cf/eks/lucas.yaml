@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Template para criaao dos nodes do EKS (nodegroup ou fargate).
+Description: Template para criação dos nodes do EKS (nodegroup ou fargate).
 
 Parameters:
   Env:
@@ -170,20 +170,17 @@ Resources:
               api-server = "${ClusterEndpoint}"
               cluster-certificate = "${ClusterCertificateAuthorityData}"
               cluster-name = "${ClusterName}"
-
+              
               [settings.bootstrap-containers.cis-bootstrap]
               source = "${CISBootstrapImage}"
               mode = "always"
               essential = true
 
-              [settings.host-containers.admin]
-              enabled = true
-              
               [settings.kernel.sysctl]
               # 3.1.1
               "net.ipv4.conf.all.send_redirects" = "0"
               "net.ipv4.conf.default.send_redirects" = "0"
-
+              
               # 3.2.2
               "net.ipv4.conf.all.accept_redirects" = "0"
               "net.ipv4.conf.default.accept_redirects" = "0"
@@ -202,7 +199,8 @@ Resources:
                   !Sub ${ClusterStackName}-ClusterEndpoint-${Env}
               ClusterName:
                 Fn::ImportValue: 
-                  !Sub ${ClusterStackName}-ClusterName-${Env}     
+                  !Sub ${ClusterStackName}-ClusterName-${Env}
+              CISBootstrapImage: !Ref CISBootstrapImage
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -280,6 +278,31 @@ Resources:
         Value:
           Fn::Sub: "${AWS::StackName}/SSH"
       VpcId: !Ref VpcId
+
+  ScheduledActionOut: 
+    Condition: isDev
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Sub
+        - eks-${NodegroupName}-${Id}
+        - Id:
+            !Select [3, !Split ["/", !GetAtt EKSNodeGroup.Arn]]
+      MinSize: !Ref NodeGroupMinNodes
+      MaxSize: !Ref NodeGroupMaxNodes
+      Recurrence: !Sub 0 ${startHour} * * *
+      TimeZone: America/Sao_Paulo
+  ScheduledActionIn: 
+    Condition: isDev
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Sub
+        - eks-${NodegroupName}-${Id}
+        - Id:
+            !Select [3, !Split ["/", !GetAtt EKSNodeGroup.Arn]]
+      MaxSize: 0
+      MinSize: 0
+      Recurrence: !Sub 0 ${stopHour} * * *
+      TimeZone: America/Sao_Paulo
 
   RoleNodeInstance:
     Type: AWS::IAM::Role

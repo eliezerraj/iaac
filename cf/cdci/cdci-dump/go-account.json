@@ -1,0 +1,174 @@
+{
+    "pipeline": {
+        "name": "go-account",
+        "roleArn": "arn:aws:iam::908671954593:role/service-role/AWSCodePipelineServiceRole-us-east-2-go-account",
+        "artifactStore": {
+            "type": "S3",
+            "location": "eliezerraj-908671954593-codepipeline"
+        },
+        "stages": [
+            {
+                "name": "Source",
+                "actions": [
+                    {
+                        "name": "Source",
+                        "actionTypeId": {
+                            "category": "Source",
+                            "owner": "AWS",
+                            "provider": "CodeStarSourceConnection",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "BranchName": "main",
+                            "ConnectionArn": "arn:aws:codestar-connections:us-east-2:908671954593:connection/f2c0bb86-e58c-4446-a637-6c1b77b5b0d9",
+                            "DetectChanges": "false",
+                            "FullRepositoryId": "eliezerraj/go-account",
+                            "OutputArtifactFormat": "CODE_ZIP"
+                        },
+                        "outputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "inputArtifacts": [],
+                        "region": "us-east-2",
+                        "namespace": "SourceVariables"
+                    }
+                ]
+            },
+            {
+                "name": "Unit_Test",
+                "actions": [
+                    {
+                        "name": "Unit_test",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"DB_HOST\",\"value\":\"rds-proxy-db-arch.proxy-couoacqalfwt.us-east-2.rds.amazonaws.com\",\"type\":\"PLAINTEXT\"},{\"name\":\"DB_PORT\",\"value\":\"5432\",\"type\":\"PLAINTEXT\"},{\"name\":\"DB_NAME\",\"value\":\"postgres\",\"type\":\"PLAINTEXT\"},{\"name\":\"DB_SCHEMA\",\"value\":\"public\",\"type\":\"PLAINTEXT\"},{\"name\":\"DB_DRIVER\",\"value\":\"postgres\",\"type\":\"PLAINTEXT\"},{\"name\":\"DB_USER\",\"value\":\"arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL:username\",\"type\":\"SECRETS_MANAGER\"},{\"name\":\"DB_PASS\",\"value\":\"arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL:password\",\"type\":\"SECRETS_MANAGER\"},{\"name\":\"TST_ACCOUNT_ID\",\"value\":\"ACC-1\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-account-test"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    }
+                ]
+            },
+            {
+                "name": "Build",
+                "actions": [
+                    {
+                        "name": "Build",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"AWS_ACCOUNT_ID\",\"value\":\"908671954593\",\"type\":\"PLAINTEXT\"},{\"name\":\"IMAGE_TAG\",\"value\":\"latest\",\"type\":\"PLAINTEXT\"},{\"name\":\"IMAGE_REPO_NAME\",\"value\":\"go-account\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-accouunt"
+                        },
+                        "outputArtifacts": [
+                            {
+                                "name": "BuildArtifact"
+                            }
+                        ],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2",
+                        "namespace": "BuildVariables"
+                    }
+                ]
+            },
+            {
+                "name": "Manual_Aproval",
+                "actions": [
+                    {
+                        "name": "Manual_approval",
+                        "actionTypeId": {
+                            "category": "Approval",
+                            "owner": "AWS",
+                            "provider": "Manual",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "CustomData": "go-account-manual-approval",
+                            "NotificationArn": "arn:aws:sns:us-east-2:908671954593:manual_approval"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [],
+                        "region": "us-east-2"
+                    }
+                ]
+            },
+            {
+                "name": "Deploy_manifests",
+                "actions": [
+                    {
+                        "name": "Deploy_manifests",
+                        "actionTypeId": {
+                            "category": "Test",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_CLUSTER_NAME\",\"value\":\"arch-eks\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_KUBECTL_ROLE_ARN\",\"value\":\"arn:aws:iam::908671954593:role/CodeBuildKubectlRole\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-account-manifests"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    },
+                    {
+                        "name": "Deploy_manifests-EKS-01",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "EnvironmentVariables": "[{\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"us-east-2\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_CLUSTER_NAME\",\"value\":\"arch-eks-01\",\"type\":\"PLAINTEXT\"},{\"name\":\"EKS_KUBECTL_ROLE_ARN\",\"value\":\"arn:aws:iam::908671954593:role/CodeBuildKubectlRole\",\"type\":\"PLAINTEXT\"}]",
+                            "ProjectName": "go-account-manifests"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "SourceArtifact"
+                            }
+                        ],
+                        "region": "us-east-2"
+                    }
+                ]
+            }
+        ],
+        "version": 9
+    },
+    "metadata": {
+        "pipelineArn": "arn:aws:codepipeline:us-east-2:908671954593:go-account",
+        "created": 1702651949.468,
+        "updated": 1706219095.673
+    }
+}

@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Application and Deployment Group
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: lambda-go-auth-apigw-deploy
+  DeploymentGroupName:
+    Type: String
+    Default: lambda-go-auth-apigw-deploy-group
+  ComputePlatform:
+    Type: String
+    Default: Lambda
+    AllowedValues:
+      - Server
+      - Lambda
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  ServiceRoleArn:
+    Type: String
+    Default: arn:aws:iam::992382474575:role/CodeDeployRoleForLambda-Eliezer
+
+Resources:
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      ComputePlatform: !Ref ComputePlatform
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+        - Key: env
+          Value: !Ref Env
+
+  CodeDeployDeploymentGroup:
+    DependsOn: CodeDeployApplication
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      AutoRollbackConfiguration: 
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      DeploymentConfigName: CodeDeployDefault.LambdaAllAtOnce
+      DeploymentGroupName: !Ref DeploymentGroupName
+      DeploymentStyle: 
+        DeploymentType: BLUE_GREEN
+        DeploymentOption: WITH_TRAFFIC_CONTROL 
+      ServiceRoleArn: !Ref ServiceRoleArn
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+        - Key: env
+          Value: !Ref Env

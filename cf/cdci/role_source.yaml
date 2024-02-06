@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A CloudFormation template that creates a role that can assume a role on a target AWS account
+
+Parameters:
+  CrossAccountRoleTestARN:
+    Type: String
+    Description: "The ARN of role on the target account that the source account (AWS Codebuild) assumes to access its services"
+    Default: arn:aws:iam::992382474575:role/crossaccount-target-role
+
+Resources:
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: crossaccount-source-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref CrossAccountAssumePolicy
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+          
+  CrossAccountAssumePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource:
+              - !Ref CrossAccountRoleTestARN
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+          
+Outputs:
+  CodeBuildServiceRole:
+    Value: !GetAtt 'CodeBuildServiceRole.Arn'

@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create KMS
+
+Parameters:
+  DevAccountId:
+    Type: String
+    Default: 992382474575
+  CodePipelineRole:
+    Type: String
+    Default: arn:aws:iam::908671954593:role/service-role/AWSCodePipelineServiceRole-us-east-2-lambda-go-auth-apigw
+
+Resources:
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: pipeline-kms-key
+        Statement:
+          - Sid: Allows admin of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: ["kms:*"]
+            Resource: "*"
+          - Sid: Allow use of the key from the other accounts
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${DevAccountId}:root"
+                - !Ref CodePipelineRole
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+  KMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/codepipeline-crossaccounts
+      TargetKeyId: !Ref KMSKey

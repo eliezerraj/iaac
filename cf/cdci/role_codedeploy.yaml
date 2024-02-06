@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Role Code Build.
+
+Parameters:
+  RoleName: 
+    Type: String
+    Default: CodeDeployRoleForLambda-Eliezer
+
+  ManagedPolicyParameterOne:
+    Description: Inform policy ARN (opcional)
+    Type: String 
+    Default: arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForLambda
+  ManagedPolicyParameterTwo:
+    Description: Inform policy ARN (opcional)
+    Type: String 
+    Default: arn:aws:iam::aws:policy/AmazonS3FullAccess
+  ManagedPolicyParameterThree:
+    Description: Inform policy ARN (opcional)
+    Type: String 
+    Default: ""
+
+Conditions:
+  IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
+  IsManagedPolicyParameterTwo:    !Not [!Equals [ !Ref ManagedPolicyParameterTwo, "" ]]
+  IsManagedPolicyParameterThree:  !Not [!Equals [ !Ref ManagedPolicyParameterThree, "" ]]
+
+Resources:
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !If [ IsManagedPolicyParameterOne, !Ref ManagedPolicyParameterOne, !Ref 'AWS::NoValue' ]
+        - !If [ IsManagedPolicyParameterTwo, !Ref ManagedPolicyParameterTwo, !Ref 'AWS::NoValue' ]
+        - !If [ IsManagedPolicyParameterThree, !Ref ManagedPolicyParameterThree, !Ref 'AWS::NoValue' ]
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+
+Outputs:
+  CodeBuildServiceRole:
+    Value: !GetAtt 'CodeBuildServiceRole.Arn'

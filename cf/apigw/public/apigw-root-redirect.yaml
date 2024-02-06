@@ -105,6 +105,7 @@ Resources:
           - value
       - Key: resource
         Value: log-group
+        
   #WafAssociation:
   #  Type: AWS::WAFv2::WebACLAssociation
   #  Properties:
@@ -555,6 +556,7 @@ Resources:
             responseTemplates:
               application/json: '{"error": { "id": "$context.requestId", "description":
                 "Too many requests", "code": "429"}}'
+  
   GlobalAPIBaseMapping:
     Type: AWS::ApiGateway::BasePathMapping
     Properties:
