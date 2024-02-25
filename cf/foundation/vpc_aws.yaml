@@ -1,0 +1,822 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC AWS infrastructure template
+
+Parameters:
+  Env:
+    Type: String
+    Description: The environment 
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+      - shared
+      #- internalprd
+  Version:
+    Type: String
+    Description: used for multiple deploys in the same environment 
+  NatGatewayMultiAZ:
+    Type: String
+    Description: multiAZ VPC configuration
+    AllowedValues:
+      - true
+      - false 
+  CidrIpRange:
+    Type: String
+    Description: The VPC CIDR chosen for the VPC. Format X.X.X.X/YY
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+  CidrNetworkMaskSize:
+    Type: String
+    Description: The VPC mask or slash used in the above CIDR
+    AllowedValues:
+      - '16'
+      - '17'
+      - '18'
+      - '19'
+      - '20'
+      - '21'
+      - '22'
+      - '23'
+      - '24'
+  Service: 
+    Type: String
+    Default: vpc
+  Squad:
+    Type: String
+    Default: network
+  Slack:
+    Type: String
+    Default: network
+  email:
+    Type: String
+    Default: network@dock.tech
+  resource:
+    Type: String
+    Default: vpc
+
+Mappings:
+  tgw:
+    sa-east-1:
+      dev: tgw-0c67e841a3b0a60f1
+      hml: tgw-0498dae8f1027de77
+      prd: tgw-0c69374b2d54b2990
+      #internalprd: tgw-03f93106a3873ccec
+    us-east-1: # Virginia
+      dev: tgw-01ae83e2a936c6fdd
+      hml: tgw-09ee009645b1b8838
+      prd: tgw-0af82e91bc84dff79
+      #internalprd: tgw-0a0322a35ba146de5
+    us-east-2: # Ohio
+      dev: tgw-080cd0b84a3e21574
+      hml: tgw-0af6261c2ed40061d
+      prd: tgw-063a9f61ef04eb215
+  vpcmask:
+    '16':
+      private: 13
+      public: 12
+      restrict: 12
+    '17':
+      private: 12
+      public: 11
+      restrict: 11
+    '18':
+      private: 11
+      public: 10
+      restrict: 10
+    '19':
+      private: 10
+      public: 9
+      restrict: 9
+    '20':
+      private: 9
+      public: 8
+      restrict: 8
+    '21':
+      private: 8
+      public: 7
+      restrict: 7
+    '22':
+      private: 7
+      public: 6
+      restrict: 6
+    '23':
+      private: 6
+      public: 5
+      restrict: 5
+    '24':
+      private: 5
+      public: 4
+      restrict: 4
+
+Conditions:
+  isPrd: !Equals [ !Ref Env, prd ]
+  isNotShared: !Not 
+    - !Equals [ !Ref Env, shared ]
+  isShared: !Equals [ !Ref Env, shared ]
+  isMultiAZ: !Equals [!Ref NatGatewayMultiAZ, true]
+
+Resources: 
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrIpRange
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['vpc', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+
+  igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['igw', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure 
+
+  vpcGwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref vpc
+      InternetGatewayId: !Ref igw
+
+  subnetPubA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 0, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'public'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'pub', 'A', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPubARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePub
+      SubnetId: !Ref subnetPubA
+
+  subnetPubB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 1, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'public'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'pub', 'B',!Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPubBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePub
+      SubnetId: !Ref subnetPubB
+
+  subnetPubC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 2, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'public'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'pub', 'C',!Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPubCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePub
+      SubnetId: !Ref subnetPubC
+
+ ############ Restrict subnets
+  subnetRestrictA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 4, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'restrict'] ]]
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ 'subnet', 'restrict', 'A', !Ref Env ]]  
+  subnetRestrictARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvA
+      SubnetId: !Ref subnetRestrictA
+  subnetRestrictAAclAssociation:  
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      SubnetId: !Ref subnetRestrictA
+
+  subnetRestrictB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 5, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'restrict'] ]]
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ 'subnet','restrict', 'B', !Ref Env ]]
+  subnetRestrictBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvB
+      SubnetId: !Ref subnetRestrictB
+  subnetRestrictBAclAssociation:  
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      SubnetId: !Ref subnetRestrictB
+
+  subnetRestrictC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 6, !Cidr [ !Ref CidrIpRange, 16, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'restrict'] ]]
+      VpcId: !Ref vpc
+      Tags:
+      - Key: Name
+        Value: !Join [ '-', [ 'subnet','restrict', 'C', !Ref Env ]]
+  subnetRestrictCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvC
+      SubnetId: !Ref subnetRestrictC
+  subnetRestrictCAclAssociation:  
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      SubnetId: !Ref subnetRestrictC
+
+  ############ Private subnets
+  subnetPrvA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 4, !Cidr [ !Ref CidrIpRange, 8, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'private'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'priv', 'A', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPrvARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvA
+      SubnetId: !Ref subnetPrvA
+      
+  subnetPrvB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 5, !Cidr [ !Ref CidrIpRange, 8, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'private'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'priv', 'B', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPrvBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvB
+      SubnetId: !Ref subnetPrvB
+
+  subnetPrvC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - !GetAZs
+          Ref: 'AWS::Region'
+      CidrBlock: !Select [ 6, !Cidr [ !Ref CidrIpRange, 8, !FindInMap [vpcmask, !Ref CidrNetworkMaskSize, 'private'] ]]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ 'subnet', 'priv', 'C', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+      VpcId: !Ref vpc
+
+  subnetPrvCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrvC
+      SubnetId: !Ref subnetPrvC
+
+### ACL
+  aclSubnetRestrict:
+    Type: AWS::EC2::NetworkAcl
+    Properties: 
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: SubnetRestrict-acl
+  InboundRuleSubnetRestrict100:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetRestrictA.CidrBlock
+  InboundRuleSubnetRestrict99:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 99
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetRestrictB.CidrBlock
+  InboundRuleSubnetRestrict198:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 98
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetRestrictC.CidrBlock
+  OutboundRuleSubnetRestrict:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 100
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: 0.0.0.0/0
+      Egress: True
+  InboundRuleSubnetPrivate97:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 97
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetPrvA.CidrBlock
+  InboundRuleSubnetPrivate96:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 96
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetPrvB.CidrBlock
+  InboundRuleSubnetPrivate95:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties: 
+      NetworkAclId: !Ref aclSubnetRestrict
+      RuleNumber: 95
+      Protocol: -1
+      RuleAction: allow
+      CidrBlock: !GetAtt subnetPrvC.CidrBlock
+
+
+  natEipPubA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  
+  natEipPubB:
+    Condition: isMultiAZ
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  
+  natEipPubC:
+    Condition: isMultiAZ
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  natGwPubA:
+    Type: AWS::EC2::NatGateway
+    DependsOn: vpcGwAttachment
+    Properties:
+      AllocationId: !GetAtt [ natEipPubA, AllocationId ]
+      SubnetId: !Ref subnetPubA
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['nat', 'gw', 'pub', 'A', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+
+  natGwPubB:
+    Condition: isMultiAZ
+    Type: AWS::EC2::NatGateway
+    DependsOn: vpcGwAttachment
+    Properties:
+      AllocationId: !GetAtt [ natEipPubB, AllocationId ]
+      SubnetId: !Ref subnetPubB
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['nat', 'gw', 'pub', 'B', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+
+  natGwPubC:
+    Condition: isMultiAZ  
+    Type: AWS::EC2::NatGateway
+    DependsOn: vpcGwAttachment
+    Properties:
+      AllocationId: !GetAtt [ natEipPubC, AllocationId ]
+      SubnetId: !Ref subnetPubC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['nat', 'gw', 'pub', 'C', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+
+#RouteTables
+  routeTablePub:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['rt', 'pub', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+    DependsOn: igw   
+
+  routeTablePrvA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['rt', 'priv', 'A', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+    DependsOn: igw
+
+  routeTablePrvB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['rt', 'priv', 'B', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+    DependsOn: igw
+
+  routeTablePrvC:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['rt', 'priv', 'C', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+    DependsOn: igw
+
+  routePrvA:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref routeTablePrvA
+      NatGatewayId: !Ref natGwPubA
+
+  routePrvB:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref routeTablePrvB
+      NatGatewayId: !If [ isMultiAZ, !Ref natGwPubB, !Ref natGwPubA ]
+
+  routePrvC:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref routeTablePrvC
+      NatGatewayId: !If [ isMultiAZ, !Ref natGwPubC, !Ref natGwPubA ]
+
+  routePub:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref routeTablePub
+      GatewayId: !Ref igw
+
+###Vpc Endpoints
+
+##Endpoints Interface
+
+  vpcEndpointSecrets:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.secretsmanager'
+      VpcId: !Ref vpc
+      SubnetIds: 
+        - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+      SecurityGroupIds:
+        - !Ref InterfaceSecurityGroup
+
+
+## Endpoints Gateway
+
+  S3GatewayEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      RouteTableIds:
+        - !Ref routeTablePrvA
+        - !Ref routeTablePrvB
+        - !Ref routeTablePrvC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcId: !Ref vpc
+
+  DynamoDbGatewayEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      RouteTableIds:
+        - !Ref routeTablePrvA
+        - !Ref routeTablePrvB
+        - !Ref routeTablePrvC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      VpcId: !Ref vpc
+
+##Security group interface endpoints
+
+  InterfaceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow port 443
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref CidrIpRange
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+##Others resources
+  tgwAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Condition: isNotShared
+    Properties: 
+      SubnetIds:
+        - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+      TransitGatewayId: !FindInMap [tgw, !Ref "AWS::Region", !Ref Env]
+      VpcId: !Ref vpc
+
+  tgwAttachmentSharedDev:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Condition: isShared
+    Properties: 
+      SubnetIds:
+        - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+      TransitGatewayId: !FindInMap [tgw, !Ref "AWS::Region", dev]
+      VpcId: !Ref vpc
+
+  tgwAttachmentSharedHML:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Condition: isShared
+    Properties: 
+      SubnetIds:
+        - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+      TransitGatewayId: !FindInMap [tgw, !Ref "AWS::Region", hml]
+      VpcId: !Ref vpc
+
+  tgwAttachmentSharedPRD:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Condition: isShared
+    Properties: 
+      SubnetIds:
+        - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+      TransitGatewayId: !FindInMap [tgw, !Ref "AWS::Region", prd]
+      VpcId: !Ref vpc
+
+
+  VPNGateway:
+    Type: AWS::EC2::VPNGateway
+    Properties:
+      Type: ipsec.1
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', ['vpg','gateway', !Ref Env ]]
+        - Key: Environment
+          Value: !Ref Env
+        - Key: Product
+          Value: infrastructure
+          
+  attachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref vpc
+      VpnGatewayId: !Ref VPNGateway
+
+  BucketS3FlowLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Join [ '-', ['dock-vpc-flowlogs', !Select [0, !Split [-, !Select [2, !Split [/, !Ref AWS::StackId ]]]]]]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: flowlogs
+        - Key: squad
+          Value: cloud
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: slack
+          Value: banking-cloud
+        - Key: email
+          Value: cloud-arch
+        - Key: resource
+          Value: s3
+
+  vpcFlowLogs:
+    Type: AWS::EC2::FlowLog
+    Properties: 
+      LogDestinationType: s3
+      LogDestination: !GetAtt BucketS3FlowLogs.Arn
+      MaxAggregationInterval: 60
+      ResourceId: !Ref vpc
+      ResourceType: VPC
+      TrafficType: ALL 
+
+Outputs:
+
+  vpcId:
+    Description: 'The VPC ID'
+    Value: !Ref vpc
+    Export:
+      Name: !Sub vpc-${Env}-${Version}
+
+  VPNGateway:
+    Description: 'The VPN GTW ID'
+    Value: !Ref VPNGateway
+    Export:
+      Name: !Sub vpn-gateway-${Env}-${Version}
+
+  ListSubnetPub:
+    Description: "The list Public subnet ID - AZ's"
+    Value: !Join 
+      - ','
+      - - !Ref subnetPubA
+        - !Ref subnetPubB
+        - !Ref subnetPubC
+    Export:
+      Name: !Sub ListSubnetPub-${Env}-${Version}
+
+  ListSubnetPrv:
+    Description: "The list Private subnet ID - AZ's"
+    Value: !Join 
+      - ','
+      - - !Ref subnetPrvA
+        - !Ref subnetPrvB
+        - !Ref subnetPrvC
+    Export:
+      Name: !Sub ListSubnetPrv-${Env}-${Version}
+
+  SubnetPrvA:
+    Description: "Private subnet ID - AZ A"
+    Value: !Ref subnetPrvA
+    Export:
+      Name: !Sub SubnetPrvA-${Env}-${Version}
+
+  SubnetPrvB:
+    Description: "Private subnet ID - AZ B"
+    Value: !Ref subnetPrvB
+    Export:
+      Name: !Sub SubnetPrvB-${Env}-${Version}
+
+  SubnetPrvC:
+    Description: "Private subnet ID - AZ C"
+    Value: !Ref subnetPrvC
+    Export:
+      Name: !Sub SubnetPrvC-${Env}-${Version}
+
+  ListRouteTablePrv:
+    Description: "The List Private routetable ID - AZ's"
+    Value: !Join
+      - ','
+      - - !Ref routeTablePrvA
+        - !Ref routeTablePrvB
+        - !Ref routeTablePrvC
+    Export:
+      Name: !Sub ListRouteTablePrv-${Env}-${Version}
+
+  RouteTablePub:
+    Description: 'The public routetable ID'
+    Value: !Ref routeTablePub
+    Export:
+      Name: !Sub RouteTablePub-${Env}-${Version}
+      
+
+
+
+## ACLS est?o aparentemente somente nas subnets restritas; Verificar como atribuir as regras;
+
+## VPC Endpoints: Verificar as de Interface; Verificar o apontamento do bucket e do Dynamo e as policies;
+
+##TO DO: Acdicionar regra na ACL para permitir acesso dos CIDRs privados; 

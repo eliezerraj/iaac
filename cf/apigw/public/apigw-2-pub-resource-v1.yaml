@@ -33,6 +33,9 @@ Parameters:
   FundAPIPrivateId:
     Type: String
     Default: unb2n5wala
+  PaymentAPIPrivateId:
+    Type: String
+    Default: ydqubo63k4
   VpcLinkIdglobal:
     Type: String
     Default: iwcrjm
@@ -206,9 +209,9 @@ Resources:
       - ResourcePath: /*
         HttpMethod: '*'
         MetricsEnabled: true
-        DataTraceEnabled: false
+        DataTraceEnabled: true
         LoggingLevel: INFO
-      TracingEnabled: false
+      TracingEnabled: true
       DefinitionBody:
         swagger: '2.0'
         info:
@@ -507,6 +510,65 @@ Resources:
                   integration.request.path.proxy: method.request.path.proxy
                   integration.request.header.x-apigw-api-id:
                     Fn::Sub: "'${FundAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+          /payment/{proxy+}:
+            get:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: GET
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${PaymentAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+            post:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: POST
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${PaymentAPIPrivateId}'"
                   integration.request.header.X-Request-ID: context.requestId
                   integration.request.header.X-AppClient-ID: context.authorizer.principalId
                   integration.request.header.client-id: context.authorizer.tenant_id

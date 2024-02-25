@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template to Alarm SNS
+
+Parameters:
+  EmailSNSEndpoint: 
+    Type: String
+    Default: eliezer.junior@dock.tech
+
+Resources:
+  TopicSNS:
+    Type: 'AWS::SNS::Topic'
+
+  SNSAlarmIntegration:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Protocol: email
+      TopicArn: !Ref TopicSNS
+      Endpoint: !Ref EmailSNSEndpoint
+
+  SNSEmailPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'sns:Publish'
+              - 'SNS:GetTopicAttributes'
+              - 'SNS:SetTopicAttributes'
+              - 'SNS:AddPermission'
+              - 'SNS:RemovePermission'
+              - 'SNS:DeleteTopic'
+              - 'SNS:Subscribe'
+              - 'SNS:ListSubscriptionsByTopic'
+              - 'SNS:Publish'
+              - 'SNS:Receive'
+            Condition:
+              StringEquals:
+                'aws:SourceOwner': ${AWS::AccountId}
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !Ref TopicSNS
+            Sid: '0'
+        Version: 2012-10-17
+      Topics:
+        - !Ref TopicSNS
+
+  IncomingBytes:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 5
+      AlarmActions:
+        - !Ref TopicSNS
+      AlarmDescription: >-
+        Incoming bytes to CloudWatch is higher than normal, risk to
+        increase the costs.
+      AlarmName: IncomingBytes
+      DatapointsToAlarm: 1
+      MetricName: IncomingBytes
+      Namespace: AWS/Logs
+      OKActions:
+        - !Ref TopicSNS
+      Period: 900
+      Statistic: Average
+      Threshold: 15000
+
+  IncomingBytesAnomaly:
+    Type: 'AWS::CloudWatch::AnomalyDetector'
+    Properties:
+      MetricName: IncomingBytes
+      Namespace: AWS/Logs
+      Stat: Average
+
+  IncomingBytesAnomalyAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      ComparisonOperator: GreaterThanUpperThreshold
+      EvaluationPeriods: 5
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref TopicSNS
+      AlarmDescription: >-
+        Incoming bytes to CloudWatch is higher than normal, risk to
+        increase the costs.
+      AlarmName: IncomingBytesAnomaly
+      DatapointsToAlarm: 5
+      Metrics:
+        - Expression: 'ANOMALY_DETECTION_BAND(m1, 3)'
+          Id: ad1
+          Label: IncomingBytes(expected)
+        - Id: m1
+          MetricStat:
+            Metric:
+              MetricName: IncomingBytes
+              Namespace: AWS/Logs
+            Period: 300
+            Stat: Average
+      ThresholdMetricId: ad1

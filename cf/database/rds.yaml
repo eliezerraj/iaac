@@ -51,17 +51,17 @@ Parameters:
       - "False"
   EnablePerformanceInsights:
     Type: "String"
-    Default: "False"
+    Default: false
     AllowedValues:
-      - "True"
-      - "False"
+      - true
+      - false  
   EnableEnhancedMonitoring:
     Description: 'Provide metrics in real time for the operating system (OS) that your DB instance runs on.'
     Type: String
     Default: false
     AllowedValues:
-      - "True"
-      - "False"  
+      - true
+      - false  
 
 Conditions:
   HasEnhancedMonitoring: !Equals [ !Ref EnableEnhancedMonitoring, 'true' ]
@@ -69,9 +69,9 @@ Conditions:
 Mappings:
   SubnetIds:
     dev:
-      SubnetAZA: subnet-0ca2d45be9d6ab5bc
-      SubnetAZB: subnet-0b2b57acbb1da0623
-      SubnetAZC: subnet-05d3e7f4611c12a23
+      SubnetAZA: subnet-04f9462620240c5c1
+      SubnetAZB: subnet-00c7176f1c6f72c32
+      SubnetAZC: subnet-0961dd9a7d368e1b0
     hml:
       SubnetAZA: subnet-0fb3b86a8657a696f
       SubnetAZB: subnet-0fb6727ed0041b799

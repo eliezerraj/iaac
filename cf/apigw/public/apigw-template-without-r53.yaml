@@ -75,16 +75,16 @@ Resources:
           Key: resource
           Value: custom-domain-name
 
-  RegionalRecordSet:
-    Condition: isRegionalEndpointType
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Type: A
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref DomainName
-      AliasTarget:
-        HostedZoneId: !GetAtt [RegionalCustomDomainName, RegionalHostedZoneId]
-        DNSName: !GetAtt [RegionalCustomDomainName, RegionalDomainName]  
+#  RegionalRecordSet:
+#    Condition: isRegionalEndpointType
+#    Type: AWS::Route53::RecordSet
+#    Properties:
+#      Type: A
+#      HostedZoneId: !Ref HostedZoneId
+#      Name: !Ref DomainName
+#      AliasTarget:
+#        HostedZoneId: !GetAtt [RegionalCustomDomainName, RegionalHostedZoneId]
+#        DNSName: !GetAtt [RegionalCustomDomainName, RegionalDomainName]  
 
   EdgeCustomDomainName:
     Condition: isEdgeEndpointType
@@ -119,16 +119,16 @@ Resources:
           Key: resource
           Value: custom-domain-name
 
-  EdgeRecordSet:
-    Condition: isEdgeEndpointType
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Type: A
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref DomainName
-      AliasTarget:
-        HostedZoneId: !GetAtt [EdgeCustomDomainName, DistributionHostedZoneId]
-        DNSName: !GetAtt [EdgeCustomDomainName, DistributionDomainName]            
+#  EdgeRecordSet:
+#    Condition: isEdgeEndpointType
+#    Type: AWS::Route53::RecordSet
+#    Properties:
+#      Type: A
+#      HostedZoneId: !Ref HostedZoneId
+#      Name: !Ref DomainName
+#      AliasTarget:
+#        HostedZoneId: !GetAtt [EdgeCustomDomainName, DistributionHostedZoneId]
+#        DNSName: !GetAtt [EdgeCustomDomainName, DistributionDomainName]            
 
 Outputs:
   RegionalURL:

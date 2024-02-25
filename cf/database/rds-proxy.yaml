@@ -31,9 +31,9 @@ Mappings:
   Network:
     dev:
       SgRDS: sg-0eec7b010b760677d
-      SubnetAZA: subnet-0ca2d45be9d6ab5bc
-      SubnetAZB: subnet-0b2b57acbb1da0623
-      SubnetAZC: subnet-05d3e7f4611c12a23
+      SubnetAZA: subnet-04f9462620240c5c1
+      SubnetAZB: subnet-00c7176f1c6f72c32
+      SubnetAZC: subnet-0961dd9a7d368e1b0
     hml:
       SgRDS: sg-0eec7b010b760677d
       SubnetAZA: subnet-0fb3b86a8657a696f
@@ -48,13 +48,13 @@ Mappings:
   RDS:
     dev:
       RDSIdentifier: db-arch-02
-      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy:password"
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy"
     hml:
       RDSIdentifier: db-arch-hml
-      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy"
     prd:
       RDSIdentifier: db-arch-prd
-      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL"
+      RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy"
 
   Proxy:
     dev:  
@@ -149,3 +149,4 @@ Resources:
       ConnectionPoolConfigurationInfo:
         MaxConnectionsPercent: !FindInMap [Proxy, !Ref Env, RDSProxyMaxConnectionsPercent ]
         MaxIdleConnectionsPercent: !FindInMap [Proxy, !Ref Env, RDSProxyMaxIdleConnectionsPercent]
+
