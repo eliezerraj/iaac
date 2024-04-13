@@ -1,9 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: template 2 loadbalancer
+Description: template loadbalancer v1
 
 Parameters:
   Env:
     Description: Environment.  
+    Type: String
+  VpcId:
+    Type: String
+  CidrIp:
     Type: String
   SubnetIds:
     Type: 'List<String>'
@@ -95,11 +99,11 @@ Parameters:
 Mappings:
   region:
     us-east-1:
-      value: 908671954593
+      value: 992382474575
     sa-east-1:
-      value: 908671954593
+      value: 992382474575
     us-east-2:
-      value: 908671954593      
+      value: 992382474575      
 
 Conditions:
   isAlb: !Equals [!Ref LoadBalancerType, application]
@@ -108,12 +112,13 @@ Conditions:
   isCustomDNS: !Equals [!Ref CustomDNS, true]
 
 Resources:
+
   S3BucketLogs:
     Condition: isAccessLogsEnable
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-      BucketName: !Sub lb-logs-${LoadBalancerName}
+      BucketName: !Sub lb-logs-992382474575-${LoadBalancerName}
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -185,6 +190,8 @@ Resources:
       Scheme: !Ref Scheme
       Subnets: !Ref SubnetIds
       Type: !Ref LoadBalancerType
+      SecurityGroups:
+        - !Ref NLBSecurityGroup
       LoadBalancerAttributes:
         - Key: load_balancing.cross_zone.enabled
           Value: true      
@@ -226,8 +233,33 @@ Resources:
         - 
           Key: PCIClassification
           Value: !Ref PCIClassification
-        - Key: CloudProvider
+        - 
+          Key: CloudProvider
           Value: !Ref CloudProvider
+
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the NLB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref CidrIp
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.255.128.0/19
+      Tags:
+        - Key: Name
+          Value: NLBSecurityGroup
+        -
+          Key: resource
+          Value: security-group
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
 
   WebACLAssociation:
     Condition: isAlb

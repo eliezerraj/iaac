@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Criacao de API Gateway para redirect
+Description: Criacao de API Gateway Vanilla
 
 Parameters:
   Versao:
@@ -15,18 +15,21 @@ Parameters:
     Default: CustomAccessLogFormat
   TemplateURL:
     Type: String
-    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-992382474575-devops.s3.us-east-2.amazonaws.com/cf-templates/apigw-template-redirect.yaml
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/apigw-1-pub-global-v1-template-redirect.yaml
+  AuthorizerARN:
+    Type: String
+    Default: arn:aws:lambda:us-east-2:908671954593:function:lambda-go-auth-apigw
   AuthorizerUri:
     Type: String
     Default: arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:908671954593:function:lambda-go-auth-apigw/invocations
   VpcLinkIdglobal:
     Description: VpcLinkName(ID)
     Type: String
-    Default: mfyvth
+    Default: umjxfk
   VPCEndpointDNS:
     Description: Alias R53 for NLB DNS
     Type: String
-    Default: nlb-arch-eks-02.architecturedev.caradhras.io #alias r53 for nlb
+    Default: go-ml-sagemaker.architecture.caradhras.io #alias r53 for nlb
   WafaclArn:
     Type: AWS::SSM::Parameter::Value<String>
     Description: Association WAF in API ApiGateway
@@ -40,13 +43,13 @@ Conditions:
 Mappings:
   Network:
     dev:
-      DomainName: go-payment.architecturedev.caradhras.io
-      EdgeCertificateArn: arn:aws:acm:us-east-2:992382474575:certificate/6be53392-cd0e-46b2-98e9-d0d037abc90c
-      RegionalCertificateArn: arn:aws:acm:us-east-2:992382474575:certificate/6be53392-cd0e-46b2-98e9-d0d037abc90c
-      HostedZoneId: Z045173738L5J6OTIXKMF
+      DomainName: go-ml-sagemaker.architecture.caradhras.io
+      EdgeCertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
+      RegionalCertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
+      HostedZoneId: Z08808671BQOU9WUREDU
   Tag:
     Service:
-      value: go-payment
+      value: go-ml-sagemaker
     Squad:
       value: architecture
     Slack:
@@ -60,7 +63,7 @@ Resources:
   AccessLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /apigateway/go-payment
+      LogGroupName: /apigateway/go-ml-sagemaker
       Tags:
       - Key: env
         Value:
@@ -94,7 +97,7 @@ Resources:
           - value
       - Key: resource
         Value: log-group
-        
+      
   #WafAssociation:
   #  Type: AWS::WAFv2::WebACLAssociation
   #  Properties:
@@ -152,12 +155,12 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       AlwaysDeploy: true
-      StageName: Live
+      StageName: qa
       DisableExecuteApiEndpoint: true
       EndpointConfiguration:
         Type: REGIONAL
       Variables:
-        apiName: go-api-global
+        apiName: go-ml-sagemaker
       Tags:
         env:
           Ref: Env
@@ -201,9 +204,9 @@ Resources:
       DefinitionBody:
         swagger: '2.0'
         info:
-          title: go-payment
+          title: go-ml-sagemaker
         tags:
-        - name: go-payment
+        - name: go-ml-sagemaker
           description: API go-payment
         schemes:
         - https
@@ -223,7 +226,7 @@ Resources:
                 type: http_proxy
                 httpMethod: GET
                 uri:
-                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                  Fn::Sub: https://${VPCEndpointDNS}/{proxy}
                 responses:
                   default:
                     statusCode: '200'
@@ -250,7 +253,7 @@ Resources:
                 type: http_proxy
                 httpMethod: POST
                 uri:
-                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                  Fn::Sub: https://${VPCEndpointDNS}/{proxy}
                 responses:
                   default:
                     statusCode: '200'
@@ -318,3 +321,10 @@ Resources:
         Ref: GlobalAPIGateway
       Stage:
         Ref: GlobalAPIGateway.Stage
+
+  ApiInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref AuthorizerARN
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com

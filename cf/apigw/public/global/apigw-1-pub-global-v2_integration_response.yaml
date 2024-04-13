@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Criacao de API Gateway para redirect
+Description: Criacao de API Gateway Integration Response
 Parameters:
   Versao:
     Type: String
@@ -14,7 +14,7 @@ Parameters:
     Default: CustomAccessLogFormat
   TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/apigw-template-redirect.yaml
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/apigw-1-pub-global-v1-template-redirect.yaml
   AuthorizerUri:
     Type: String
     Default: arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:908671954593:function:lambda-go-auth-apigw/invocations
@@ -526,16 +526,39 @@ Resources:
                   description: 200 response
                   schema:
                     $ref: '#/definitions/Empty'
+                  headers:
+                    Content-Length:
+                      type: string
+                    Timestamp:
+                      type: string
+                    Content-Type:
+                      type: string
+                    strict-transport-security:
+                      type: string
+                    content-security-policy:
+                      type: string
+                    x-content-type-options:
+                      type: string
+                    x-xss-protection:
+                      type: string
+                    referrer-policy:
+                      type: string
               security:
               - lambda-go-auth-apigw: []
               x-amazon-apigateway-integration:
-                type: http_proxy
+                type: http
                 httpMethod: GET
                 uri:
                   Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
                 responses:
                   default:
                     statusCode: '200'
+                    responseParameters:
+                      method.response.header.strict-transport-security: "'max-age=31536000;includeSubdomains;preload'"
+                      method.response.header.content-security-policy: "'default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none''"
+                      method.response.header.x-content-type-options: "'nosniff'"
+                      method.response.header.x-xss-protection: "'1;mode=block'"
+                      method.response.header.referrer-policy: "'same-origin'"
                 requestParameters:
                   integration.request.path.proxy: method.request.path.proxy
                   integration.request.header.x-apigw-api-id:
@@ -576,6 +599,59 @@ Resources:
                 passthroughBehavior: when_no_match
                 connectionType: VPC_LINK
                 connectionId: !Ref VpcLinkIdglobal
+          /payment-pub/{proxy+}:
+            get:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http
+                httpMethod: GET
+                uri:
+                  Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: INTERNET 
+            post:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http
+                httpMethod: POST
+                uri:
+                  Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: INTERNET 
         x-amazon-apigateway-api-key-source: AUTHORIZER
         securityDefinitions:
           lambda-go-auth-apigw:

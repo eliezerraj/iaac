@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Tasks Sets for the Data Migration Service
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  SourceEndpointArn:
+    Type: String
+    Default: arn:aws:dms:us-east-2:908671954593:endpoint:db-arch-02-source
+  TargetEndpointArn:
+    Type: String
+    Default: arn:aws:dms:us-east-2:908671954593:endpoint:db-arch-01-target
+
+  BusinessUnitName:
+    Type: String
+    Default: global
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: dms-replication-task
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: dms-replication-task
+  PciScopeName:
+    Type: String
+    Default: non-pci
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+
+Conditions:
+  IsPrd: !Equals
+    - !Ref Env
+    - prd
+
+Mappings:
+  Tags:
+    service:
+      value: arch-dms-rds-tasks-iac
+    squad:
+      value: architecture
+    slack:
+      value: architecture
+    email:
+      value: architecture@dock.tech
+
+Resources:
+  DMSReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      ReplicationTaskIdentifier: !Sub db-arch01-to-db-arch03-repn-task-${Env}
+      MigrationType: cdc
+      ReplicationInstanceArn: !Sub 'arn:aws:dms:${AWS::Region}:${AWS::AccountId}:rep:arch-instance-dev'
+      ReplicationTaskSettings: !Sub
+        - |
+          {
+            "FullLoadSettings": {
+              "TargetTablePrepMode": "DO_NOTHING",
+            },
+            "Logging": {
+              "EnableLogging": true,
+              "LogComponents": [
+                {
+                  "Id": "SOURCE_UNLOAD",
+                  "Severity": "LOGGER_SEVERITY_DEFAULT"
+                },
+                {
+                  "Id": "SOURCE_CAPTURE",
+                  "Severity": "LOGGER_SEVERITY_DEFAULT"
+                },
+                {
+                  "Id": "TARGET_LOAD",
+                  "Severity": "LOGGER_SEVERITY_DEFAULT"
+                },
+                {
+                  "Id": "TARGET_APPLY",
+                  "Severity": "LOGGER_SEVERITY_DEFAULT"
+                }
+              ]
+            },
+            "TargetMetadata": {
+              "TargetSchema": "${TargetSchema}"
+            }
+          }
+        - TargetSchema: !If [ IsPrd, "public", "public" ]
+      SourceEndpointArn: !Ref SourceEndpointArn
+      TargetEndpointArn: !Ref TargetEndpointArn
+      TableMappings: |
+        {
+          "rules": [
+            {
+              "rule-type": "selection",
+              "rule-id": "1",
+              "rule-name": "arch-replication-payment-table-source",
+              "object-locator": {
+                  "schema-name": "public",
+                  "table-name": "%"
+              },
+              "rule-action": "include"
+            },
+            {
+              "rule-type": "selection",
+              "rule-id": "2",
+              "rule-name": "arch-replication-payment-table-target",
+              "object-locator": {
+                  "schema-name": "public",
+                  "table-name": "%"
+              },
+              "rule-action": "include"
+            }
+          ]
+        }
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [ Tags, service, value ]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [ Tags, squad, value ]
+        - Key: slack
+          Value: !FindInMap [ Tags, slack, value ]
+        - Key: email
+          Value: !FindInMap [ Tags, email, value ]
+        - Key: resource
+          Value: replication-task
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: owner
+          Value: !Ref OwnerName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_scope
+          Value: !Ref PciScopeName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName

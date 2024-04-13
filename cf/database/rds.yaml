@@ -9,24 +9,30 @@ Parameters:
       - dev
       - hml
       - prd
+  EngineVersion:
+    Type: String
+    Default: 15.5
+    AllowedValues:
+      - 15.5
+      - 16.1
   SecurityGroupRDS:
     Type: String
-    Default: sg-0eec7b010b760677d
+    Default: sg-007cb193e844ca353
   DBParameterGroupName:
     Type: String
-    Default: dock-pg16
+    Default: db-parameter-pg15
   SubnetDBGroupGroupName:
     Type: String
     Default: db-subnet-group-rds
   RDSPostgreName:
     Type: String
-    Default: db-arch-02
+    Default: db-arch-01
   RDSDBName:
     Type: String
     Default: postgres
   InstanceName:
     Type: String
-    Default: db-arch-02
+    Default: db-arch-01
   MasterUserName:
     Type: String
     Default: postgres
@@ -112,7 +118,7 @@ Resources:
     Type: AWS::RDS::DBParameterGroup
     Properties:
       Description: Database Parameter Group
-      Family: postgres16
+      Family: postgres15
       Parameters:
         shared_preload_libraries: pg_stat_statements
       Tags:
@@ -137,7 +143,7 @@ Resources:
       DBInstanceIdentifier: !Ref InstanceName
       DBSubnetGroupName: !Ref SubnetDBGroup
       Engine: postgres
-      EngineVersion: '16.1'
+      EngineVersion: !Ref EngineVersion
       MasterUsername: !Ref MasterUserName
       MasterUserPassword: !Ref MasterUserPasswordName
       #MasterUserSecret: 

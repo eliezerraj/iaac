@@ -13,7 +13,7 @@ Parameters:
     Default: arn:aws:elasticloadbalancing:us-east-2:908671954593:loadbalancer/net/vpce-global-nlb-dev/8d531d1119f30e59
   TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/nlb-vpc-link-template.yaml
+    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/vpc-link-template.yaml
 
 Mappings:
   Tag:

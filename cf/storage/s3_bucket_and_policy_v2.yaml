@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: '2010-09-09'
-AWSTemplateFormatVersion: '2010-09-09'
 Description: Template create s3 bucket/policy
 
 Parameters:
@@ -17,7 +16,7 @@ Parameters:
     Type: String
 
 Resources:
-  S3Bucket:
+  ConsoleBrazilStatementDocsBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
       BucketName: !Ref S3BucketName
@@ -35,8 +34,9 @@ Resources:
       - Key: resource
         Value: bucket-s3
 
-  S3BucketPolicy:
+  ConsoleBrazilStatementPierHTTPConnectionPolicy:
     Type: AWS::S3::BucketPolicy
+    DependsOn: ConsoleBrazilStatementDocsBucket
     Properties:
       Bucket: !Ref S3BucketName
       PolicyDocument:
@@ -44,37 +44,24 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-              - s3:*
+              - 's3:GetObject'
+              - 's3:PutObjectAcl'
+              - 's3:GetBucketLocation'
+              - 's3:GetObjectTagging'
+              - 's3:GetObjectVersion'
+              - 's3:ListBucket'
+              - 's3:ListBucketVersions'
             Resource:
-              - !Sub arn:aws:s3:::${S3Bucket}
-              - !Sub arn:aws:s3:::${S3Bucket}/*
+              - !Sub arn:aws:s3:::${S3BucketName}
+              - !Sub arn:aws:s3:::${S3BucketName}/*
             Principal:
-              '*'
-
-  S3BucketPolicyEnforceTLS:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref S3BucketName
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Deny
-            Action:
-              - s3:*
-            Resource:
-              - !Sub arn:aws:s3:::${S3Bucket}
-              - !Sub arn:aws:s3:::${S3Bucket}/*
-            Principal:
-              '*'
-            Condition:
-              Bool:
-                's3:SecureTransport':
-                  - "false"
+              AWS: 
+                - arn:aws:iam::971633816549:root
 
 Outputs:
-  BucketName:
-    Value: !Ref S3Bucket
+  BucketNameConsoleBrazilStatementDocsBucket:
+    Value: !Ref ConsoleBrazilStatementDocsBucket
     Description: The name of the bucket
-  BucketArn: 
-    Value: !GetAtt S3Bucket.Arn
+  BucketArnConsoleBrazilStatementDocsBucket: 
+    Value: !GetAtt ConsoleBrazilStatementDocsBucket.Arn
     Description: The buckey ARN

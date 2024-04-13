@@ -1,17 +1,39 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Creation of NLB for the Global API project
+Description: Creation of NLB for the RDS
 
 Parameters:
   Versao:
     Type: String
+    Default: 1.1
   Env:
+    Description: Execution environment
     Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
   VPCEndpointIPs:
-    Default: 10.214.72.61,10.214.187.10,10.214.241.14
+    Default: 10.214.32.124,10.214.187.10,10.214.241.14
     Type: CommaDelimitedList      
   TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/nlb-template-vpce.yaml
+    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-992382474575-devops.s3.us-east-2.amazonaws.com/cf-templates/nlb-template.yaml
+  CustomDNS:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  ListenerPort:
+    Type: String
+    Default: 5432
+  AccessLogsEnable:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
 
 Mappings:
   Network:
@@ -21,7 +43,7 @@ Mappings:
       SubnetAZA: subnet-0ca2d45be9d6ab5bc
       SubnetAZB: subnet-0b2b57acbb1da0623
       SubnetAZC: subnet-05d3e7f4611c12a23
-      CertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
+      CertificateArn: arn:aws:acm:us-east-2:992382474575:certificate/6be53392-cd0e-46b2-98e9-d0d037abc90c
       HostedZoneId: Z032031337N3G0ZYNJ75U
       DomainName: vpce.global.architecture.caradhras.io
         
@@ -29,11 +51,11 @@ Mappings:
     CloudProvider:
       value: aws
     Application:
-      value: api-gateway-global
+      value: nlb-rds-db-arch-02
     BusinessUnitName:
-      value: banking
+      value: architecture
     Component:
-      value: api-gateway-global
+      value: NLB
     Owner:
       value: architecture
     Platform:
@@ -51,10 +73,10 @@ Resources:
     Properties:
       Parameters:
         IpAddressType: ipv4
-        LoadBalancerName: !Sub vpce-global-nlb-${Env}
+        LoadBalancerName: !Sub nlb-rds-arch-02-${Env}
         Scheme: internal
         LoadBalancerType: network
-        AccessLogsEnable: false
+        AccessLogsEnable: !Ref AccessLogsEnable
         SubnetIds:
           !Join
           - ","
@@ -72,7 +94,9 @@ Resources:
         PCIClassification: !If [isPrd, pci, non-pci]
         PCIScope: !If [isPrd, true, false]
         Platform: !FindInMap [ Tag, Platform, value ] 
-        CustomDNS: false
+        CustomDNS: !Ref CustomDNS
+        VpcId: !FindInMap [ Network, !Ref Env, VpcId ]
+        CidrIp: !FindInMap [ Network, !Ref Env, VpcCidr ]
       TemplateURL: !Ref TemplateURL
 
   GlobalVPCEndpointListener:
@@ -90,10 +114,22 @@ Resources:
       Protocol: TLS
       SslPolicy: ELBSecurityPolicy-TLS13-1-0-2021-06
 
+  GlobalVPCEndpointListenerbNoTLS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Order: 2
+          TargetGroupArn: !Ref GlobalVPCEndpointTargets
+          Type: forward
+      LoadBalancerArn: 
+        Fn::GetAtt: [Nlb, Outputs.LoadBalancerArn]
+      Port: !Ref ListenerPort
+      Protocol: TCP
+
   GlobalVPCEndpointTargets:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: global-vpcendpoint-tg
+      Name: rds-db-arch-02-tg
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 10
       HealthCheckPort: 443
@@ -111,7 +147,7 @@ Resources:
       VpcId: !FindInMap [ Network, !Ref Env, VpcId ] 
       Tags:
         - Key: Name
-          Value: global-vpcendpoint-tg
+          Value: rds-db-arch-02-tg
         -
           Key: env
           Value: !Ref Env

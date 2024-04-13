@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Roles Sets for the Data Migration Service
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - hml
+      - prd
+
+Conditions:
+  IsPrd: !Equals 
+    - !Ref Env
+    - prd
+
+Mappings:
+  SourceEndpointSettings:
+    dev:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+    hml:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+    prd:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+  TargetEndpointSettings:
+      dev:
+        ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL
+        ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      hml:
+        ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+        ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      prd:
+        ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+        ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      
+  Tags:
+    service:
+      value: db-arch-01-dms-roles
+    squad:
+      value: architecture
+    slack:
+      value: architecture
+    email:
+      value: architecture@dock.tech
+    owner:
+      value: architecture
+    businessUnit:
+      value: global
+    platform:
+      value: dockone
+    application:
+      value: dms
+    component:
+      value: architecture-roles
+    PCIClassification:
+      value: non-pci
+    PCIScope:
+      value: false
+
+Resources:
+  DMSSourceEndpointRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ArchDMSSourceEndpointRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub "dms.${AWS::Region}.amazonaws.com"
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: ArchDMSSourceEndpointPolivy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                Resource: !FindInMap [ SourceEndpointSettings, !Ref Env, ExternalSecretManagerArn ]
+                Effect: Allow
+              - Action:
+                  - "kms:Decrypt"
+                  - "kms:DescribeKey"
+                Resource: !FindInMap [ SourceEndpointSettings, !Ref Env, ExternalKmsArn ]
+                Effect: Allow
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: iam-roles
+        - Key: name
+          Value: iam-roles
+
+  DMSTargetEndpointRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ArchDMSTargetEndpointRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub "dms.${AWS::Region}.amazonaws.com"
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: ArchDMSTargetEndpointPolivy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                Resource: !FindInMap [ TargetEndpointSettings, !Ref Env, ExternalSecretManagerArn ]
+                Effect: Allow
+              - Action:
+                  - "kms:Decrypt"
+                  - "kms:DescribeKey"
+                Resource: !FindInMap [ TargetEndpointSettings, !Ref Env, ExternalKmsArn ]
+                Effect: Allow
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: iam-roles
+        - Key: name
+          Value: iam-roles

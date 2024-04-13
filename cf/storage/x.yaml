@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Template for console brazil statement lambda
+
+Parameters:
+  Versao:
+    Type: String
+ 
+  FunctionName:
+    Type: String
+    Description: Name of the function
+    Default: "console-brazil-statement-trigger-dev"
+
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+      - qa
+    Default: "dev"
+
+  Runtime:
+    Type: String
+    Description: Version of runtime (NodeJs)
+    Default: "nodejs20.x"
+
+  Timeout:
+    Type: String
+    Description: Timout in seconds
+    Default: "300"
+
+  MemorySize:
+    Type: Number
+    Description: Memory size of the function
+    Default: "1024"
+
+  LambdaPrivateSubnetC:
+    Type: String
+    Default: "subnet-05d3e7f4611c12a23"
+
+  SecGroup:
+    Type: String
+    Default: "sg-0067994b0408385bf"
+
+  LambdaPrivateSubnetA:
+    Type: String
+    Default: "subnet-0ca2d45be9d6ab5bc"
+
+  LambdaPrivateSubnetB:
+    Type: String
+    Default: "subnet-05d3e7f4611c12a23"
+ 
+  StatementTable:
+    Type: String
+    Description: Arn of the statement queue
+    Default: "arn:aws:sqs:us-east-2:245857777462:console-brazil-statement-queue-dev"
+ 
+  StatementQueue:
+    Type: String
+    Description: Arn of the statement queue
+    Default: "https://sqs.us-east-2.amazonaws.com/245857777462/console-brazil-statement-queue-dev"
+ 
+  StatementQueueArn:
+    Type: String
+    Description: Arn of the statement queue
+
+  S3BucketDocsName:
+    Type: String
+    Default: "console-brazil-statement-docs-dev"
+
+  DestinationBucketName:
+    Type: String
+    Default: "console-s3-access-logging-configuration-dev"
+
+  DefaultPierArnConnection:
+    Type: String
+    Default: "arn:aws:iam::908671954593:root"
+
+Mappings:
+  Tag:
+    Squad:
+      value: "squad-arcus"
+    Slack:
+      value: "priv-console-alerts"
+    Email:
+      value: "srv.console"
+    Service:
+      value: "dock-console"
+    PlatformName:
+      value: "dockone"
+    BusinessUnitName:
+      value: "fronts"
+    ApplicationName:
+      value: "dock-console"
+    ComponentName:
+      value: "console-brazil-statement-trigger"
+    PciClassificationName:
+      value: "pci"
+    PciScopeName:
+      value: "true"
+    OwnerName:
+      value: "squad-arcus"
+
+Resources:
+
+  ConsoleBrazilStatementDocsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketDocsName
+      AccessControl: Private
+      LoggingConfiguration:
+        DestinationBucketName: !Ref DestinationBucketName
+        LogFilePrefix: !Ref S3BucketDocsName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tag, Service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tag, Squad, value]
+        - Key: slack
+          Value: !FindInMap [Tag, Slack, value]
+        - Key: email
+          Value: !FindInMap [Tag, Email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tag, BusinessUnitName, value]
+        - Key: platform
+          Value: !FindInMap [Tag, PlatformName, value]
+        - Key: application
+          Value: !FindInMap [Tag, ApplicationName, value]
+        - Key: component
+          Value: !FindInMap [Tag, ComponentName, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tag, PciScopeName, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tag, PciClassificationName, value]
+        - Key: owner
+          Value: !FindInMap [Tag, OwnerName, value]
+        - Key: resource
+          Value: s3
+
+  ConsoleBrazilStatementPierHTTPConnection:
+    Type: AWS::S3::BucketPolicy
+    DependsOn: ConsoleBrazilStatementDocsBucket
+    Properties:
+      Bucket:  !Ref S3BucketDocsName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enforce HTTPS Connections
+            Effect: Allow
+            Principal: 
+              AWS: 
+                - arn:aws:iam::971633816549:root
+            Action:
+              - 's3:GetObject'
+              - 's3:PutObjectAcl'
+              - 's3:GetBucketLocation'
+              - 's3:GetObjectTagging'
+              - 's3:GetObjectVersion'
+              - 's3:ListBucket'
+              - 's3:ListBucketVersions'
+            Resource:
+              - arn:aws:s3:::245857777462-console-brazil-statement-docs-dev
+
+Outputs:
+  BucketNameConsoleBrazilStatementDocsBucket:
+    Value: !Ref ConsoleBrazilStatementDocsBucket
+  BucketArnConsoleBrazilStatementDocsBucket: 
+    Value: !GetAtt ConsoleBrazilStatementDocsBucket.Arn

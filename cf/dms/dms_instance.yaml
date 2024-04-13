@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Single instance for Data Migration Service
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - hml
+      - prd
+
+Conditions:
+  IsPrd: !Equals
+    - !Ref Env
+    - prd
+
+Mappings:
+  Network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+    hml:
+      VpcId: vpc-053bf362926211174
+      VpcCidr: 10.213.0.0/16
+      SubnetAZA: subnet-0fb3b86a8657a696f
+      SubnetAZB: subnet-0fb6727ed0041b799
+      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+    prd:
+      VpcId: vpc-05583dab4737e64fd
+      VpcCidr: 10.197.128.0/17
+      SubnetAZA: subnet-0a0c6c1b76845ca8a
+      SubnetAZB: subnet-0d2dc2da1fb208470
+      SubnetAZC: subnet-0446d425f47765e5b
+  RepInstanceSettings:
+    dev:
+      ReplicationInstanceClass: dms.t3.small
+    hml:
+      ReplicationInstanceClass: dms.t3.small
+    prd:
+      ReplicationInstanceClass: dms.t3.medium
+
+  Tags:
+    service:
+      value: arch-dms-instance
+    squad:
+      value: architecture
+    slack:
+      value: architecture
+    email:
+      value: architecture@dock.tech
+    owner:
+      value: architecture
+    businessUnit:
+      value: global
+    platform:
+      value: dockone
+    application:
+      value: architecture
+    component:
+      value: dms-instance
+    PCIClassification:
+      value: non-pci
+    PCIScope:
+      value: false
+
+Resources:
+  DMSReplicationSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupIdentifier: arch-rep-ins-dms-subnet-group
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+        - !FindInMap [Network, !Ref Env, SubnetAZA]
+        - !FindInMap [Network, !Ref Env, SubnetAZB]
+        - !FindInMap [Network, !Ref Env, SubnetAZC]
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: arch-replicationsubnetgroup
+        - Key: name
+          Value: arch-replicationsubnetgroup
+
+  DMSReplicationInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the DMS Replication Instance
+      GroupName: arch-replication-instance-sg
+      VpcId: !FindInMap [Network, !Ref Env, VpcId]
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: arch-securitygroup
+        - Key: name
+          Value: arch-securitygroup
+
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      MultiAZ: !If [IsPrd, true, false]
+      PubliclyAccessible: false
+      ReplicationInstanceClass:
+        !FindInMap [RepInstanceSettings, !Ref Env, ReplicationInstanceClass]
+      EngineVersion: 3.4.7
+      ResourceIdentifier: !Sub arch-instance-${Env}
+      ReplicationInstanceIdentifier: !Sub arch-instance-${Env}
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+        - Ref: DMSReplicationInstanceSecurityGroup
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: arch-replicationinstance
+        - Key: name
+          Value: arch-replicationinstance

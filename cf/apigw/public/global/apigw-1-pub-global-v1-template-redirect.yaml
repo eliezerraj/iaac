@@ -42,6 +42,7 @@ Conditions:
   isEdgeEndpointType: !Equals [!Ref EndpointType, EDGE]
 
 Resources: 
+
   RegionalCustomDomainName:
     Condition: isRegionalEndpointType
     Type: 'AWS::ApiGateway::DomainName'

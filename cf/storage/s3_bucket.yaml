@@ -14,9 +14,6 @@ Parameters:
   S3BucketName:
     Description: Bucket Name
     Type: String
-  IDAccountCondition:
-    Type: String
-    Default: 99999999
     
 Resources:
   S3Bucket:
