@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack Event Bridge
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  SNSTopicArn:
+    Type: String
+    Default: arn:aws:sns:us-east-2:992382474575:sns-security-group-monitoring-SNSecGrpTopic-tKWN1DJCN7a1
+
+Resources:
+  SecGrpEventBridgeRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Name: security-group-changes
+      Description: 'monitoring security-group-changes'
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - ec2.amazonaws.com
+          eventName:
+            - ModifySecurityGroupRules
+            - AuthorizeSecurityGroupIngress
+            - AuthorizeSecurityGroupEgress
+            - RevokeSecurityGroupIngress
+            - RevokeSecurityGroupEgress
+      State: 'ENABLED'
+      Targets:
+        - Arn: !Ref SNSTopicArn
+          Id: 'TargetSNS'
+          InputTransformer:
+            InputPathsMap:
+              accountId: $.detail.userIdentity.accountId
+              detail: $.detail
+              eventName: $.detail.eventName
+              eventTime: $.detail.eventTime
+              groupId: $.detail.requestParameters.ModifySecurityGroupRulesRequest.GroupId
+              groupIdAdd: $.detail.requestParameters.groupId
+              principalId: $.detail.userIdentity.principalId
+            InputTemplate: >-
+              " --- SECURITY GROUP ---"
+
+              "O evento <eventName> foi executado no security group <groupId> <groupIdAdd> da conta <accountId> pelo <principalId> em <eventTime> com os detalhes abaixo:"
+
+
+              " <detail> "

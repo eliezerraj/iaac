@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Endpoints Sets for the Data Migration Service
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - hml
+      - prd
+  ServerName:
+    Type: String
+    Default: db-arch-02.cj4aqa08ettf.us-east-2.rds.amazonaws.com
+
+Conditions:
+  IsPrd: !Equals 
+    - !Ref Env
+    - prd
+
+Mappings:
+  SourceEndpointSettings:
+    dev:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+    hml:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+    prd:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+
+  TargetEndpointSettings:
+    dev:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:908671954593_arch-rds-access-zmhPaL
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+    hml:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+    prd:
+      ExternalSecretManagerArn: arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy
+      ExternalKmsArn: arn:aws:kms:us-east-2:792192516784:key/a902466b-95dd-4a92-b853-ec02805b4b50
+      DatabaseName: postgres
+
+  Tags:
+    service:
+      value: arch-dms-endpoints
+    squad:
+      value: architecture
+    slack:
+      value: architecture
+    email:
+      value: architecture@dock.tech
+    owner:
+      value: architecture
+    businessUnit:
+      value: global
+    platform:
+      value: dockone
+    application:
+      value: eitri
+    component:
+      value: architecture-endpoints
+    PCIClassification:
+      value: non-pci
+    PCIScope:
+      value: false
+
+Resources:
+  DMSPGSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      ResourceIdentifier: db-arch-02-source
+      EndpointIdentifier: db-arch-02-source
+      EndpointType: source
+      EngineName: postgres
+      SslMode: none 
+      ServerName: !Ref ServerName
+      Port: 5432
+      Password: postgres
+      Username: postgres
+      DatabaseName: !FindInMap [ SourceEndpointSettings, !Ref Env, DatabaseName ]
+      ExtraConnectionAttributes: heartbeatEnable=true;heartbeatFrequency=1;heartbeatSchema=public
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: dms-endpoint
+        - Key: name
+          Value: db-arch-02-endpoint
+
+  DMSPGTargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      ResourceIdentifier: db-arch-target
+      EndpointIdentifier: db-arch-target
+      EndpointType: target
+      EngineName: postgres
+      SslMode: none
+      DatabaseName: !FindInMap [ TargetEndpointSettings, !Ref Env, DatabaseName ]
+      PostgreSqlSettings:
+        SecretsManagerAccessRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/ArchDMSTargetEndpointRole"
+        SecretsManagerSecretId: !FindInMap [ TargetEndpointSettings, !Ref Env, ExternalSecretManagerArn ]
+      ExtraConnectionAttributes: heartbeatEnable=true;heartbeatFrequency=1;heartbeatSchema=public
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !FindInMap [Tags, service, value]
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tags, squad, value]
+        - Key: slack
+          Value: !FindInMap [Tags, slack, value]
+        - Key: email
+          Value: !FindInMap [Tags, email, value]
+        - Key: business_unit
+          Value: !FindInMap [Tags, businessUnit, value]
+        - Key: platform
+          Value: !FindInMap [Tags, platform, value]
+        - Key: application
+          Value: !FindInMap [Tags, application, value]
+        - Key: component
+          Value: !FindInMap [Tags, component, value]
+        - Key: pci_classification
+          Value: !FindInMap [Tags, PCIClassification, value]
+        - Key: pci_scope
+          Value: !FindInMap [Tags, PCIScope, value]
+        - Key: owner
+          Value: !FindInMap [Tags, owner, value]
+        - Key: resource
+          Value: arch-endpoint
+        - Key: name
+          Value: arch-endpoint
+
+  #DMSKakfaTargetEndpoint:
+  #  Type: AWS::DMS::Endpoint
+  #  Properties:
+  #    ResourceIdentifier: eitri-kafka-target
+  #    EndpointIdentifier: eitri-kafka-target
+  #    EndpointType: target
+  #    EngineName: kafka
+  #    KafkaSettings:
+  #      Broker: !Sub
+  #        - '{{resolve:secretsmanager:${SecretId}:SecretString:brokers}}'
+  #        - SecretId: !FindInMap [ TargetEndpointSettings, !Ref Env, SecretsManagerSecretId ]
+  #      Topic: !Join [ ".", [ kfk, !Ref Env, eitri.cdc ] ]
+  #      SecurityProtocol: sasl-ssl
+  #      SaslUserName: !Sub
+  #        - '{{resolve:secretsmanager:${SecretId}:SecretString:username}}'
+  #        - SecretId: !FindInMap [ TargetEndpointSettings, !Ref Env, SecretsManagerSecretId ]
+  #      SaslPassword: !Sub
+  #        - '{{resolve:secretsmanager:${SecretId}:SecretString:password}}'
+  #        - SecretId: !FindInMap [ TargetEndpointSettings, !Ref Env, SecretsManagerSecretId ]
+  #    Tags:
+  #      - Key: env
+  #        Value: !Ref Env
+  #      - Key: service
+  #        Value: !FindInMap [Tags, service, value]
+  #      - Key: stack
+  #        Value: !Sub ${AWS::StackName}
+  #      - Key: squad
+  #        Value: !FindInMap [Tags, squad, value]
+  #      - Key: slack
+  #        Value: !FindInMap [Tags, slack, value]
+  #      - Key: email
+  #        Value: !FindInMap [Tags, email, value]
+  #      - Key: business_unit
+  #        Value: !FindInMap [Tags, businessUnit, value]
+  #      - Key: platform
+  #        Value: !FindInMap [Tags, platform, value]
+  #      - Key: application
+  #        Value: !FindInMap [Tags, application, value]
+  #      - Key: component
+  #        Value: !FindInMap [Tags, component, value]
+  #      - Key: pci_classification
+  #        Value: !FindInMap [Tags, PCIClassification, value]
+  #      - Key: pci_scope
+  #        Value: !FindInMap [Tags, PCIScope, value]
+  #      - Key: owner
+  #        Value: !FindInMap [Tags, owner, value]
+  #      - Key: resource
+  #        Value: sleipnir-endpoint
+  #      - Key: name
+  #        Value: sleipnir-endpoint
+
+Outputs:
+  DMSPGSourceEndpoint:
+    Value: !Ref DMSPGSourceEndpoint
+  DMSPGTargetEndpoint:
+    Value: !Ref DMSPGTargetEndpoint

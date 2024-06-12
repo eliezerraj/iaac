@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Template to Alarm SNS
+Description: Template to Alarm TG
 
 Parameters:
   Env:
@@ -16,11 +16,20 @@ Parameters:
     Default: eliezer.junior@dock.tech
   TopicName:
     Type: String
-    Default: incoming-byte-log-group-monitoring
+    Default: target-group-monitoring
   OwnerName:
     Type: String
     Default: architecture
-    
+  LoadBalancerFullName: 
+    Type: String
+    Default: app/alb-teste-2/bb8444c5ba16f69d
+  TargetGroupFullName01:
+    Type: String
+    Default: targetgroup/tg-priv-80/4417d6a40a66496c
+  TargetGroupFullName02:
+    Type: String
+    Default: targetgroup/tg-priv-81/7f05257aab9419e5
+
 Resources:
   TopicSNS:
     Type: 'AWS::SNS::Topic'
@@ -68,22 +77,27 @@ Resources:
       Topics:
         - !Ref TopicSNS
 
-  IncomingBytes:
+  TargetGroupMonitoring01:
     Type: 'AWS::CloudWatch::Alarm'
     Properties:
+      AlarmName: UnHealthyHostCount-01
+      AlarmDescription: >-
+        Monitoring unhealthy ELB target group.
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
       ComparisonOperator: GreaterThanThreshold
-      EvaluationPeriods: 5
+      Dimensions:
+        - Name: 'TargetGroup'
+          Value: !Ref TargetGroupFullName01
+        - Name: 'LoadBalancer'
+          Value: !Ref LoadBalancerFullName
       AlarmActions:
         - !Ref TopicSNS
-      AlarmDescription: >-
-        Incoming bytes to CloudWatch is higher than normal
-      AlarmName: IncomingBytes
       DatapointsToAlarm: 1
-      MetricName: IncomingBytes
-      Namespace: AWS/Logs
-      Period: 900
-      Statistic: Average
-      Threshold: 15000
       Tags:
         - Key: env
           Value: !Ref Env
@@ -92,41 +106,31 @@ Resources:
         - Key: squad
           Value: architecture
         - Key: resource
-          Value: cloudwatch-alarm
+          Value: cloudwatch-log
         - Key: owner
           Value: !Ref OwnerName
 
-  IncomingBytesAnomaly:
-    Type: 'AWS::CloudWatch::AnomalyDetector'
-    Properties:
-      MetricName: IncomingBytes
-      Namespace: AWS/Logs
-      Stat: Average
-
-  IncomingBytesAnomalyAlarm:
+  TargetGroupMonitoring02:
     Type: 'AWS::CloudWatch::Alarm'
     Properties:
-      ComparisonOperator: GreaterThanUpperThreshold
-      EvaluationPeriods: 5
-      ActionsEnabled: true
+      AlarmName: UnHealthyHostCount-02
+      AlarmDescription: >-
+        Monitoring unhealthy ELB target group.
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: 'TargetGroup'
+          Value: !Ref TargetGroupFullName02
+        - Name: 'LoadBalancer'
+          Value: !Ref LoadBalancerFullName
       AlarmActions:
         - !Ref TopicSNS
-      AlarmDescription: >-
-        Incoming bytes to CloudWatch is higher than normal
-      AlarmName: IncomingBytesAnomaly
-      DatapointsToAlarm: 5
-      Metrics:
-        - Expression: 'ANOMALY_DETECTION_BAND(m1, 3)'
-          Id: ad1
-          Label: IncomingBytes(expected)
-        - Id: m1
-          MetricStat:
-            Metric:
-              MetricName: IncomingBytes
-              Namespace: AWS/Logs
-            Period: 300
-            Stat: Average
-      ThresholdMetricId: ad1
+      DatapointsToAlarm: 1
       Tags:
         - Key: env
           Value: !Ref Env
@@ -135,6 +139,6 @@ Resources:
         - Key: squad
           Value: architecture
         - Key: resource
-          Value: cloudwatch-alarm
+          Value: cloudwatch-log
         - Key: owner
           Value: !Ref OwnerName

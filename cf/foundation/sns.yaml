@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack SNS template
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  TopicName:
+    Type: String
+    Default: security-group-monitoring
+  EmailSubscription:
+    Type: String
+    Default: eliezer.junior@dock.tech
+  ApplicationName:
+    Type: String
+    Default: architecture
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+Mappings:
+  Tag:
+    Service:
+      value: architecture
+    Squad:
+      value: architecture
+    Slack:
+      value: architecture
+    Email:
+      value: architecture@dock.tech
+
+Resources:
+  SNSecGrpTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: !Ref TopicName
+      Subscription:
+        - Endpoint: !Ref EmailSubscription
+          Protocol: email
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [Tag, Squad, value]
+        - Key: slack
+          Value: !FindInMap [Tag, Slack, value]
+        - Key: email
+          Value: !FindInMap [Tag, Email, value]
+        - Key: resource
+          Value: log-group
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: owner
+          Value: !Ref OwnerName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName

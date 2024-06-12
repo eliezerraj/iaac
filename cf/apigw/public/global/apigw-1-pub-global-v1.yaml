@@ -36,6 +36,9 @@ Parameters:
   PaymentAPIPrivateId:
     Type: String
     Default: ydqubo63k4
+  MlGatewayAPIPrivateId:
+    Type: String
+    Default: 3p27io6tsa
   VpcLinkIdglobal:
     Type: String
     Default: iwcrjm
@@ -628,7 +631,66 @@ Resources:
                   integration.request.header.client-id: context.authorizer.tenant_id
                   integration.request.header.X-Forwarded-For: context.identity.sourceIp
                 passthroughBehavior: when_no_match
-                connectionType: INTERNET 
+                connectionType: INTERNET
+          /ml-gateway/{proxy+}:
+            get:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: GET
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${MlGatewayAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+            post:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: POST
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${MlGatewayAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
         x-amazon-apigateway-api-key-source: AUTHORIZER
         securityDefinitions:
           lambda-go-auth-apigw:
