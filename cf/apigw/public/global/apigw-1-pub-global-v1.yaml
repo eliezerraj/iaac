@@ -215,6 +215,9 @@ Resources:
         DataTraceEnabled: true
         LoggingLevel: INFO
       TracingEnabled: true
+      CanarySetting:
+        PercentTraffic: 30  # Route 30% of traffic to the canary
+        UseStageCache: false  # Disable caching for canary deployments
       DefinitionBody:
         swagger: '2.0'
         info:
@@ -733,7 +736,18 @@ Resources:
             responseTemplates:
               application/json: '{"error": { "id": "$context.requestId", "description":
                 "Too many requests", "code": "429"}}'
-  
+   
+ #CanaryDeployment:
+ #  Type: AWS::ApiGateway::Deployment
+ #   Properties:
+ #     RestApiId: !Ref GlobalAPIGateway
+ #     StageDescription:
+ #       CachingEnabled: false  
+ #       CanarySetting:
+ #         StageVariables:
+ #           canaryFeature: "enabled"  
+ #         PercentTraffic: 50  
+
   GlobalAPIBaseMapping:
     Type: AWS::ApiGateway::BasePathMapping
     Properties:
