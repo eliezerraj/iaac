@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A CloudFormation template that creates a role
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  S3BucketName:
+    Description: Bucket Name
+    Type: String
+
+Resources:
+  RdsS3ExportRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rds-s3-export-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: rds.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: ${AWS::AccountId}
+                aws:SourceArn: !Sub arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:db:*
+      Tags:
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
+      - Key: name
+        Value: rds-s3-export-role
+      - Key: resource
+        Value: role
+
+  RdsS3ExportPolicy:
+    DependsOn: RdsS3ExportRole
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: rds-s3-export-policy 
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - 's3:ListBucket'
+              - 's3:GetObject*'
+              - 's3:DeleteObject*'
+              - 's3:GetBucketLocation'
+              - 's3:AbortMultipartUpload'
+            Resource: Sub! 'arn:aws:s3:::${S3BucketName}/*'
+      Roles: 
+          - !Ref RdsS3ExportRole
+
+Outputs:
+  RdsS3ExportRole:
+    Value: !GetAtt 'RdsS3ExportRole.Arn'
