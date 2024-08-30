@@ -48,7 +48,7 @@ Parameters:
     Default: network
   email:
     Type: String
-    Default: network@dock.tech
+    Default: architecture@xpto.com
   resource:
     Type: String
     Default: vpc

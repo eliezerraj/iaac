@@ -40,7 +40,7 @@ Parameters:
     Default: architecture
   PlatformName:
     Type: String
-    Default: dockone
+    Default: architecture
     
   HandlerName:
     Description: Handler Name (go=main, python=index.handler)

@@ -130,7 +130,7 @@ Parameters:
     Default: "PREFER_NO_SCHEDULE"
   CISBootstrapImage:
     Type: String
-    Description: "The Docker Image to CIS bootstrap - PCI Compliance - Bottlerocket"
+    Description: "The Image to CIS bootstrap - PCI Compliance - Bottlerocket"
     Default: "111066175892.dkr.ecr.us-east-2.amazonaws.com/bottlerocket-cis-bootstrap:bootstrap"
 
 Conditions:

@@ -56,13 +56,13 @@ Mappings:
     slack:
       value: architecture
     email:
-      value: architecture@dock.tech
+      value: architecture@xpto.tech
     owner:
       value: architecture
     businessUnit:
       value: global
     platform:
-      value: dockone
+      value: architecture
     application:
       value: architecture
     component:

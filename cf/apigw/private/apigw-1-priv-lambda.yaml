@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Persons Module
+Description: Module
 Parameters:
   Versao:
     Type: String
@@ -62,7 +62,7 @@ Parameters:
     Default: datadoghq.com
   DatadogApiKeySecretArn:
     Type: String
-    Default: arn:aws:secretsmanager:us-east-2:711251547192:secret:DdApiKeySecret-fake-fake
+    Default: arn:aws:secretsmanager:us-east-2:999999999:secret:DdApiKeySecret-fake-fake
   DatadogHandler:
     Type: String
     Default: datadog_lambda.handler.handler
@@ -100,11 +100,11 @@ Mappings:
     ServiceName:
       value: persons
     SquadName:
-      value: squad-vision
+      value: architect
     SquadSlack:
-      value: squad-vision
+      value: architect
     SquadMail:
-      value: squad-vision@dock.tech
+      value: architect
     CustomDomainTemplate:
       value: 2.0.0
 Conditions:
@@ -2145,90 +2145,90 @@ Resources:
           MISSING_AUTHENTICATION_TOKEN:
             statusCode: 403
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x-ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "MISSING_AUTHENTICATION_TOKEN", "code": "403"}}'
           INVALID_API_KEY:
             statusCode: 403
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x--ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "INVALID_API_KEY", "code": "403"}}'
           EXPIRED_TOKEN:
             statusCode: 403
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x-ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "EXPIRED_TOKEN", "code": "403"}}'
           INVALID_SIGNATURE:
             statusCode: 403
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x--ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "INVALID_SIGNATURE", "code": "403"}}'
           ACCESS_DENIED:
             statusCode: 403
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x-ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "Forbidden.", "code": "403"}}'
           UNAUTHORIZED:
             statusCode: 401
             responseParameters:
-              gatewayresponse.header.x-dock-ErrorMessage: context.authorizer.message
-              gatewayresponse.header.x-dock-RequestId: context.requestId
-              gatewayresponse.header.x-dock-ErrorType: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-ErrorCode: context.authorizer.errorCode
+              gatewayresponse.header.x-ErrorMessage: context.authorizer.message
+              gatewayresponse.header.x-RequestId: context.requestId
+              gatewayresponse.header.x-ErrorType: "'AuthorizationError'"
+              gatewayresponse.header.x-ErrorCode: context.authorizer.errorCode
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "Unauthorized.", "code": "401"}}'
           QUOTA_EXCEEDED:
             statusCode: 429
             responseParameters:
-              gatewayresponse.header.x-dock-errormessage: "'Too many requests'"
-              gatewayresponse.header.x-dock-requestid: context.requestId
-              gatewayresponse.header.x-dock-errortype: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-errorcode: "'4000'"
+              gatewayresponse.header.x-errormessage: "'Too many requests'"
+              gatewayresponse.header.x-requestid: context.requestId
+              gatewayresponse.header.x-errortype: "'AuthorizationError'"
+              gatewayresponse.header.x-errorcode: "'4000'"
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "QUOTA_EXCEEDED", "code": "429"}}'
           THROTTLED:
             statusCode: 429
             responseParameters:
-              gatewayresponse.header.x-dock-errormessage: "'Too many requests'"
-              gatewayresponse.header.x-dock-requestid: context.requestId
-              gatewayresponse.header.x-dock-errortype: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-errorcode: "'4000'"
+              gatewayresponse.header.x-errormessage: "'Too many requests'"
+              gatewayresponse.header.x-requestid: context.requestId
+              gatewayresponse.header.x-errortype: "'AuthorizationError'"
+              gatewayresponse.header.x--errorcode: "'4000'"
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "THROTTLED", "code": "429"}}'
           REQUEST_TOO_LARGE:
             statusCode: 413
             responseParameters:
-              gatewayresponse.header.x-dock-errormessage: "'Request too large'"
-              gatewayresponse.header.x-dock-requestid: context.requestId
-              gatewayresponse.header.x-dock-errortype: "'AuthorizationError'"
-              gatewayresponse.header.x-dock-errorcode: "'4000'"
+              gatewayresponse.header.x-errormessage: "'Request too large'"
+              gatewayresponse.header.x-requestid: context.requestId
+              gatewayresponse.header.x-errortype: "'AuthorizationError'"
+              gatewayresponse.header.x-errorcode: "'4000'"
             responseTemplates:
               application/json: '{"error": {"id": "$context.requestId", "description":
                 "REQUEST_TOO_LARGE", "code": "413"}}'

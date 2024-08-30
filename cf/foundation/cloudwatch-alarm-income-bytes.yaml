@@ -13,7 +13,7 @@ Parameters:
       - prd
   EmailSNSEndpoint: 
     Type: String
-    Default: eliezer.junior@dock.tech
+    Default: eliezer.junior@xpto.tech
   TopicName:
     Type: String
     Default: incoming-byte-log-group-monitoring

@@ -18,7 +18,7 @@ Parameters:
     Default: security-group-monitoring
   EmailSubscription:
     Type: String
-    Default: eliezer.junior@dock.tech
+    Default: eliezer.junior@xpto.tech
   ApplicationName:
     Type: String
     Default: architecture
@@ -44,7 +44,7 @@ Mappings:
     Slack:
       value: architecture
     Email:
-      value: architecture@dock.tech
+      value: architecture@xpto.tech
 
 Resources:
   SNSecGrpTopic:

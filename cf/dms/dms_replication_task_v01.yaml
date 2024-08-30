@@ -25,7 +25,7 @@ Parameters:
     Default: global
   PlatformName:
     Type: String
-    Default: dockone
+    Default: architecture
   ApplicationName:
     Type: String
     Default: dms-replication-task
@@ -60,7 +60,7 @@ Mappings:
     slack:
       value: architecture
     email:
-      value: architecture@dock.tech
+      value: architecture@xpto.tech
 
 Resources:
   DMSReplicationTask:

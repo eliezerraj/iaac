@@ -1,0 +1,310 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+- AWS::LanguageExtensions
+- AWS::Serverless-2016-10-31
+Description: Stack da infraestrutura dos API Gateways do produto Open Finance - Hera
+
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+    - dev
+    - hml
+    - prd
+  Versao:
+    Type: String
+  ConsentsEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-consent-api/.kubernetes/env/ingress.yaml
+    Default: eks-consents.openfinance.dev.caradhras.io
+  PaymentsEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-payment-api/.kubernetes/env/ingress.yaml
+    Default: eks-payments.openfinance.dev.caradhras.io
+  DatadogForwarderFunction:
+    Type: String
+    Default: AWS::NoValue
+  PublicApiLogFormat:
+    Type: String
+    Default: '{"api": "$context.authorizer.apiName", "requestId": "$context.requestId",
+      "sourceIP": "$context.identity.sourceIp", "userAgent": "$context.identity.userAgent",
+      "WAFresponse": "$context.wafResponseCode", "httpMethod": "$context.httpMethod",
+      "path": "$context.path", "respTime":$context.integrationLatency, "responseCode":
+      "$context.status", "integRespCode": "$context.integrationStatus", "reqTime":$context.requestTimeEpoch,
+      "resourcePath": "$context.resourcePath", "apiId": "$context.apiId", "appClient":
+      "$context.authorizer.principalId", "issuerName": "$context.authorizer.nome_emissor",
+      "issuerId": "$context.authorizer.id_emissor", "jwtId": "$context.authorizer.jwt_id",
+      "authLatency": "$context.authorizer.latency"}'
+  OpenFinancePublicApiName:
+    Type: String
+    Default: open-finance-api
+  OpenFinancePublicApiLogGroupName:
+    Type: String
+    Description: Name of API Gateway Log Group
+    Default: /dock/apigateway/open-finance-api-01
+  DocknitoAuthorizerAccount:
+    Type: String
+    Default: 483836619723
+  DocknitoAuthorizerRegion:
+    Type: String
+    Default: us-east-2
+  Application:
+    Type: String
+    Default: open-finance-api-gateway-iac
+  BusinessUnit:
+    Type: String
+    Default: banking
+  CloudProvider:
+    Type: String
+    Default: aws
+  Infrastructure:
+    Type: String
+    Default: iac
+  Owner:
+    Type: String
+    Default: Core Banking
+  PciScope:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: 'false'
+  Project:
+    Type: String
+    Default: open_finance
+  Service:
+    Type: String
+    Default: open-finance-api-gateway-iac
+  Squad:
+    Type: String
+    Default: squad-hera
+  Slack:
+    Type: String
+    Default: banking-olimpo-squad-hera-deploy
+  Email:
+    Type: String
+    Default: squad-hera@dock.tech
+  EdgeCertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-2:024848462400:certificate/9583c356-81cd-4fc6-8c81-6c365a1d4c22
+  ApiGatewayDomainName:
+    Type: String
+    Default: api.openfinance.dev.caradhras.io
+
+Conditions:
+  enableDatadog:
+    Fn::Or:
+    - Fn::Equals:
+      - Ref: Env
+      - prd
+    - Fn::Equals:
+      - Ref: Env
+      - hml
+      
+Resources:
+  LogGroupOpenFinancePublicApi:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Ref: OpenFinancePublicApiLogGroupName
+      Tags:
+      - Key: application
+        Value:
+          Ref: Application
+      - Key: business_unit
+        Value:
+          Ref: BusinessUnit
+      - Key: cloud_provider
+        Value:
+          Ref: CloudProvider
+      - Key: email
+        Value:
+          Ref: Email
+      - Key: env
+        Value:
+          Ref: Env
+      - Key: infrastructure
+        Value:
+          Ref: Infrastructure
+      - Key: owner
+        Value:
+          Ref: Owner
+      - Key: pci_scope
+        Value:
+          Ref: PciScope
+      - Key: project
+        Value:
+          Ref: Project
+      - Key: resource
+        Value: log-group
+      - Key: service
+        Value:
+          Ref: Service
+      - Key: slack
+        Value:
+          Ref: Slack
+      - Key: squad
+        Value:
+          Ref: Squad
+      - Key: stack
+        Value:
+          Fn::Sub: ${AWS::StackName}
+
+  OpenFinancePublicApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - LogGroupOpenFinancePublicApi
+          - Arn
+        Format:
+          Ref: PublicApiLogFormat
+      AlwaysDeploy: true
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: open-finance-api
+        tags:
+        - name: open-finance-api
+          description: Open Finance Api
+        schemes:
+        - https
+        paths:
+          /v1/consents/{proxy+}:
+            x-amazon-apigateway-any-method:
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: https://${ConsentsEksDomainName}/v1/consents/{proxy}
+                passthroughBehavior: when_no_match
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.requestId: context.requestId
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                httpMethod: ANY
+                type: http_proxy
+                connectionType: VPC_LINK
+                connectionId:
+                  Fn::ImportValue: OpenFinanceVpcLinkId
+          /v1/payments/{proxy+}:
+            x-amazon-apigateway-any-method:
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: https://${PaymentsEksDomainName}/v1/payments/{proxy}
+                passthroughBehavior: when_no_match
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.requestId: context.requestId
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                httpMethod: ANY
+                type: http_proxy
+                connectionType: VPC_LINK
+                connectionId:
+                  Fn::ImportValue: OpenFinanceVpcLinkId
+        x-amazon-apigateway-api-key-source: AUTHORIZER
+        securityDefinitions:
+          docknito:
+            type: apiKey
+            name: Unused
+            in: header
+            x-amazon-apigateway-authtype: custom
+            x-amazon-apigateway-authorizer:
+              authorizerUri:
+                Fn::Sub: arn:aws:apigateway:${DocknitoAuthorizerRegion}:lambda:path/2015-03-31/functions/arn:aws:lambda:${DocknitoAuthorizerRegion}:${DocknitoAuthorizerAccount}:function:docknito-authorization:stable/invocations
+              authorizerResultTtlInSeconds: 600
+              identitySource: method.request.header.Authorization, context.path, context.httpMethod,  context.identity.sourceIp
+              type: request
+        definitions:
+          Empty:
+            type: object
+            title: Empty Schema
+        x-amazon-apigateway-gateway-responses:
+          UNAUTHORIZED:
+            statusCode: 401
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Unauthorized", "code": "401"}}'
+          ACCESS_DENIED:
+            statusCode: 403
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": "403"}}'
+          DEFAULT_4XX:
+            statusCode: 404
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Resource not found", "code": "404"}}'
+          DEFAULT_5XX:
+            statusCode: 500
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Internal Server Error", "code": "500"}}'
+          THROTTLED:
+            statusCode: 429
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Too many requests", "code": "429"}}'
+      Description: API publica do Open Finance
+      DisableExecuteApiEndpoint: true
+      EndpointConfiguration:
+        Type: EDGE
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        MetricsEnabled: true
+        DataTraceEnabled: false
+        LoggingLevel: INFO
+      StageName: Live
+      Tags:
+        application:
+          Ref: Application
+        business_unit:
+          Ref: BusinessUnit
+        cloud_provider:
+          Ref: CloudProvider
+        email:
+          Ref: Email
+        env:
+          Ref: Env
+        infrastructure:
+          Ref: Infrastructure
+        owner:
+          Ref: Owner
+        pci_scope:
+          Ref: PciScope
+        project:
+          Ref: Project
+        resource: api-gateway
+        service:
+          Ref: Service
+        slack:
+          Ref: Slack
+        squad:
+          Ref: Squad
+        stack:
+          Fn::Sub: ${AWS::StackName}
+      TracingEnabled: false
+      Variables:
+        apiName:
+          Ref: OpenFinancePublicApiName
+  
+  ApiCustomDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref ApiGatewayDomainName
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      SecurityPolicy: TLS_1_2
+      CertificateArn: !Ref EdgeCertificateArn   
+
+  OpenFinanceApiBaseMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiGatewayDomainName
+      RestApiId:  !Ref OpenFinancePublicApiGateway
+      Stage: !Ref OpenFinancePublicApiGateway.Stage
