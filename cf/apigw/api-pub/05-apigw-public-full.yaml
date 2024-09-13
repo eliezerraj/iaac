@@ -13,6 +13,7 @@ Parameters:
     - prd
   Versao:
     Type: String
+    Default: 0
   ConsentsEksDomainName:
     Type: String
     Description: EKS Domain name defined in open-finance-consent-api/.kubernetes/env/ingress.yaml
@@ -86,10 +87,20 @@ Parameters:
     Default: squad-hera@dock.tech
   EdgeCertificateArn:
     Type: String
-    Default: arn:aws:acm:us-east-2:024848462400:certificate/9583c356-81cd-4fc6-8c81-6c365a1d4c22
+    Default: arn:aws:acm:us-east-1:024848462400:certificate/715b7778-01b5-4f9a-951d-d8afad93e48b
+  RegionalCertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-2:024848462400:certificate/9583c356-81cd-4fc6-8c81-6c365a1d4c22 
   ApiGatewayDomainName:
     Type: String
+    Default: api-no-mtls.openfinance.dev.caradhras.io
+  ApiGatewayMltsDomainName:
+    Type: String
     Default: api.openfinance.dev.caradhras.io
+  WafaclArn:
+    Type: String
+    Description: Association WAF in API ApiGateway
+    Default: arn:aws:wafv2:us-east-2:024848462400:regional/webacl/acl-basic-openfinance/c0273c69-c6ea-4778-ba37-d7fcf7edcf38
 
 Conditions:
   enableDatadog:
@@ -150,6 +161,14 @@ Resources:
         Value:
           Fn::Sub: ${AWS::StackName}
 
+  WafAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}::/restapis/${OpenFinancePublicApiGateway}/stages/${OpenFinancePublicApiGateway.Stage}
+      WebACLArn:
+        Ref: WafaclArn
+
   OpenFinancePublicApiGateway:
     Type: AWS::Serverless::Api
     Properties:
@@ -173,6 +192,8 @@ Resources:
         paths:
           /v1/consents/{proxy+}:
             x-amazon-apigateway-any-method:
+              security:
+              - docknito: []
               x-amazon-apigateway-integration:
                 uri:
                   Fn::Sub: https://${ConsentsEksDomainName}/v1/consents/{proxy}
@@ -190,6 +211,8 @@ Resources:
                   Fn::ImportValue: OpenFinanceVpcLinkId
           /v1/payments/{proxy+}:
             x-amazon-apigateway-any-method:
+              security:
+              - docknito: []
               x-amazon-apigateway-integration:
                 uri:
                   Fn::Sub: https://${PaymentsEksDomainName}/v1/payments/{proxy}
@@ -302,9 +325,30 @@ Resources:
       SecurityPolicy: TLS_1_2
       CertificateArn: !Ref EdgeCertificateArn   
 
+  ApiMtlsCustomDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref ApiGatewayMltsDomainName
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      SecurityPolicy: TLS_1_2
+      RegionalCertificateArn: !Ref RegionalCertificateArn   
+      MutualTlsAuthentication:
+        TruststoreUri: 's3://docktech-024848462400-truststore-mtls/RootCA-docknito-hml.cer'
+        TruststoreVersion: 'hK9EshryUKgwqoTM3eKdFLYpYloFYr84'
+      SecurityPolicy: 'TLS_1_2'
+
   OpenFinanceApiBaseMapping:
     Type: AWS::ApiGateway::BasePathMapping
     Properties:
       DomainName: !Ref ApiGatewayDomainName
+      RestApiId:  !Ref OpenFinancePublicApiGateway
+      Stage: !Ref OpenFinancePublicApiGateway.Stage
+
+  OpenFinanceApiMtlsBaseMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiGatewayMltsDomainName
       RestApiId:  !Ref OpenFinancePublicApiGateway
       Stage: !Ref OpenFinancePublicApiGateway.Stage
