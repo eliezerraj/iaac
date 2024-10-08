@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "Infrastructure definitions for Fraud Prevention Gateway application"
+
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  Versao:
+    Type: String
+  ServiceName:
+    Type: String
+    Default: architecture-sns
+  SquadMail:
+    Type: String
+    Default: architecture@dock.tech
+  SquadName:
+    Type: String
+    Default: architecture
+  SquadSlack:
+    Type: String
+    Default: priv-squad-horus
+
+  FraudPreventionTransactionsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: FraudPreventionTransactionsTopic
+      TopicName: FraudPreventionTransactionsTopic
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !Ref ServiceName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !Ref SquadName
+        - Key: email
+          Value: !Ref SquadMail
+        - Key: resource
+          Value: sns
+
+  FraudPreventionTransactionsTopicSubscribePolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref FraudPreventionTransactionsTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FraudPreventionTransactionsTopicSubscribePolicy
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - sns:Subscribe
+            Resource: !Ref FraudPreventionTransactionsTopic
+            Condition:
+              StringEquals: !Ref "AWS::AccountId"
