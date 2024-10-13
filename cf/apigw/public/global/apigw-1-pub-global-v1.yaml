@@ -42,6 +42,9 @@ Parameters:
   VpcLinkIdglobal:
     Type: String
     Default: iwcrjm
+  OrderAPIPrivateId:
+    Type: String
+    Default: bvmub7vb2h
   VPCEndpointDNS:
     Type: String
     Default: vpce-arch-eks-01.architecture.caradhras.io #alias r53 for nlb
@@ -694,6 +697,67 @@ Resources:
                 passthroughBehavior: when_no_match
                 connectionType: VPC_LINK
                 connectionId: !Ref VpcLinkIdglobal
+
+          /order/{proxy+}:
+            get:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: GET
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${OrderAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+            post:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - lambda-go-auth-apigw: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: POST
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${OrderAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+
         x-amazon-apigateway-api-key-source: AUTHORIZER
         securityDefinitions:
           lambda-go-auth-apigw:

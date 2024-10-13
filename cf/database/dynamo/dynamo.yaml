@@ -15,8 +15,6 @@ Parameters:
   DynamoDBTableName:
     Type: String
     Default: my-architecture-table
-  BusinessUnitName:
-    Type: String
   PlatformName:
     Type: String
     Default: architecture
@@ -67,6 +65,7 @@ Parameters:
 Resources:
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
     Properties:
       TableName: !Ref DynamoDBTableName
       BillingMode: !Ref DefaultBillingMode
@@ -113,8 +112,6 @@ Resources:
           Value: dynamo
         - Key: backup
           Value: !Ref IsBackupEnabled
-        - Key: business_unit
-          Value: !Ref BusinessUnitName
         - Key: platform
           Value: !Ref PlatformName
         - Key: application
