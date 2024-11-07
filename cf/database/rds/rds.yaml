@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: RDS 
+Description: RDS v1
 
 Parameters:
   Env:
@@ -9,37 +9,62 @@ Parameters:
       - dev
       - hml
       - prd
+  BusinessUnitName:
+    Type: String
+    Default: global
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: rds architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
   EngineVersion:
     Type: String
-    Default: 15.5
+    Default: 16.3
     AllowedValues:
       - 15.5
-      - 16.1
+      - 16.3
   SecurityGroupRDS:
     Type: String
     Default: sg-007cb193e844ca353
   DBParameterGroupName:
     Type: String
-    Default: db-parameter-pg15
+    Default: db-parameter-pg16
   SubnetDBGroupGroupName:
     Type: String
-    Default: db-subnet-group-rds
+    Default: db-subnet-grp-db-arch-01
   RDSPostgreName:
     Type: String
-    Default: db-arch-01
+    Default: db-arch-03
   RDSDBName:
     Type: String
     Default: postgres
   InstanceName:
     Type: String
-    Default: db-arch-01
+    Default: db-arch-03
   MasterUserName:
     Type: String
     Default: postgres
   MasterUserPasswordName:
     Type: String
     Default: postgres
-  Squad:
+  Owner:
     Type: String
     Default: architecture
   isMultiAZ:
@@ -57,14 +82,14 @@ Parameters:
       - "False"
   EnablePerformanceInsights:
     Type: "String"
-    Default: false
+    Default: true
     AllowedValues:
       - true
       - false  
   EnableEnhancedMonitoring:
     Description: 'Provide metrics in real time for the operating system (OS) that your DB instance runs on.'
     Type: String
-    Default: false
+    Default: true
     AllowedValues:
       - true
       - false  
@@ -105,20 +130,34 @@ Resources:
         - !FindInMap [SubnetIds, !Ref Env, SubnetAZB]
         - !FindInMap [SubnetIds, !Ref Env, SubnetAZC]
       Tags:
-        - Key: Name
-          Value: !Ref SubnetDBGroupGroupName
         - Key: env
           Value: !Ref Env
         - Key: stack
           Value: !Sub ${AWS::StackName}
-        - Key: squad
-          Value: !Ref Squad
+        - Key: name
+          Value: !Ref RDSPostgreName
+        - Key: resource
+          Value: DBSubnetGroup
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
 
   RDSDBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
     Properties:
       Description: Database Parameter Group
-      Family: postgres15
+      Family: postgres16
       Parameters:
         shared_preload_libraries: pg_stat_statements
       Tags:
@@ -126,16 +165,30 @@ Resources:
           Value: !Ref Env
         - Key: stack
           Value: !Sub ${AWS::StackName}
-        - Key: Name
-          Value: !Ref DBParameterGroupName
-        - Key: squad
-          Value: !Ref Squad
+        - Key: name
+          Value: !Ref RDSPostgreName
+        - Key: resource
+          Value: DBParameterGroup
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
 
   RDSPostgre:
     Type: 'AWS::RDS::DBInstance'
     Properties:
       AllocatedStorage: 20
-      DBInstanceClass: db.t3.micro
+      DBInstanceClass: db.t4g.micro
       DBName: !Ref RDSDBName
       AllowMajorVersionUpgrade: false
       AutoMinorVersionUpgrade: true
@@ -164,10 +217,24 @@ Resources:
           Value: !Ref Env
         - Key: stack
           Value: !Sub ${AWS::StackName}
-        - Key: Name
+        - Key: name
           Value: !Ref RDSPostgreName
-        - Key: squad
-          Value: !Ref Squad
+        - Key: resource
+          Value: DBInstance
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
 
   EnhancedMonitoringRole:
     Condition: HasEnhancedMonitoring
@@ -184,3 +251,10 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
       Path: "/"
+
+Outputs:
+  RDSPostgre:
+    Description: The RDS instance identifier
+    Value: !Ref RDSPostgre
+    Export:
+      Name: RDSPostgre

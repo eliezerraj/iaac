@@ -3,37 +3,48 @@ Transform: AWS::Serverless-2016-10-31
 Description: RDS Proxy IaC
 
 Parameters:
-  Versao:
-    Type: String
-    Default: 1
-
-  Env:
-    Type: String
+  Type: String
     Default: dev
     AllowedValues:
       - dev
       - hml
       - prd
-
-  Squad:
+  BusinessUnitName:
     Type: String
-    Default: architecture
-
-  Slack:
+    Default: global
+  PlatformName:
     Type: String
-    Default: architecture
-
-  Email:
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: rdsproxy architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  Owner:
     Type: String
     Default: architecture
 
 Mappings:
   Network:
     dev:
-      SgRDS: sg-0eec7b010b760677d
-      SubnetAZA: subnet-04f9462620240c5c1
-      SubnetAZB: subnet-00c7176f1c6f72c32
-      SubnetAZC: subnet-0961dd9a7d368e1b0
+      SgRDS: vpc-0df31a6e2d113d8b7
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-05d3e7f4611c12a23
+      SubnetAZC: subnet-0b2b57acbb1da0623
     hml:
       SgRDS: sg-0eec7b010b760677d
       SubnetAZA: subnet-0fb3b86a8657a696f
@@ -47,7 +58,7 @@ Mappings:
 
   RDS:
     dev:
-      RDSIdentifier: db-arch-02
+      RDSIdentifier: db-arch-01
       RDSSecretManagerArn: "arn:aws:secretsmanager:us-east-2:792192516784:secret:992382474575_arch-rds-02-access-ncEwuy"
     hml:
       RDSIdentifier: db-arch-hml
@@ -58,7 +69,7 @@ Mappings:
 
   Proxy:
     dev:  
-      RDSProxyIdentifier: rds-proxy-db-arch-02
+      RDSProxyIdentifier: rds-proxy-db-arch-01
       RDSProxyIdleClientTimeout: 3600
       RDSProxyMaxConnectionsPercent: 90
       RDSProxyMaxIdleConnectionsPercent: 50
@@ -97,23 +108,31 @@ Resources:
       Tags:
         - Key: env
           Value: !Ref Env
-        - Key: service
-          Value: rds-proxy-iac
         - Key: stack
           Value: !Sub ${AWS::StackName}
-        - Key: squad
-          Value: !Ref Squad
-        - Key: slack
-          Value: !Ref Slack
-        - Key: email
-          Value: !Ref Email
+        - Key: name
+          Value: kmsRdsS3Backup
         - Key: resource
-          Value: iam-role
+          Value: DBProxy
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
   
   RDSProxyRole:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: db-arch-rds-proxy-role
+      RoleName: DbArchRdsProxyRole
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -124,7 +143,7 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Policies:
-        - PolicyName: db-arch-rds-proxy-policy
+        - PolicyName: DbArchRdsProxyPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -138,6 +157,29 @@ Resources:
                 - "kms:DescribeKey"
                 Resource: "*"
                 Effect: Allow
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: db-arch-rds-proxy-role
+        - Key: resource
+          Value: Role
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
 
   RDSProxyTargetGroup:
     Type: AWS::RDS::DBProxyTargetGroup
