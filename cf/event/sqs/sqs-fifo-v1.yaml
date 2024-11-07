@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack SQS Fico template v1
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  Owner:
+    Type: String
+    Default: architecture
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  BusinessUnitName:
+    Type: String
+    Default: banking
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: apigw logformat architecture
+  SQSName:
+    Type: String
+    Default: order.fifo
+  SQSDLQName:
+    Type: String
+    Default: dlq-order.fifo
+
+Resources:
+  SQSFifoQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: !Ref SQSName
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      DeduplicationScope: messageGroup
+      FifoThroughputLimit: perMessageGroupId
+      MessageRetentionPeriod: 345600  
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SQSDeadLetterQueue.Arn
+        maxReceiveCount: 5
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref SQSName
+        - Key: resource
+          Value: Queue
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
+
+  SQSDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref SQSDLQName
+      FifoQueue: true
+      MessageRetentionPeriod: 345600
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref SQSDLQName
+        - Key: resource
+          Value: Queue
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
+
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SQSFifoQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+            Resource: !GetAtt SQSFifoQueue.Arn

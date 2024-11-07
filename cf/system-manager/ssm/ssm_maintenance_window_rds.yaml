@@ -1,0 +1,221 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create a maintenance window to start and stop RDS instances
+
+Parameters:
+  Versao:
+    Type: String
+  Env:
+    Description: stack environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - qa
+    ConstraintDescription: Never set PRD environment for this template.
+  AutomationSSMStartTaskARN:
+    Type: String
+    Default: AWS-StartRdsInstance
+  AutomationSSMStopTaskARN:
+    Type: String
+    Default: AWS-StopRdsInstance
+
+Mappings:
+  Tags:
+    squad:
+      value: maat
+    slack:
+      value: core-squad-maat
+
+Resources:
+  SSMAutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/service-role/AmazonSSMAutomationRole
+      Tags:
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [ Tags, squad, value ]
+        - Key: slack
+          Value: !FindInMap [ Tags, slack, value ]
+
+  CustomPolicyForRDS:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: customSSMRDSManagementPolicy 
+      Description: Customer managed policy to management RDS
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - rds:StopDBInstance
+              - rds:StartDBInstance
+              - rds:DescribeDBInstances
+            Resource: !Sub arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:db:*
+      Roles: [!Ref SSMAutomationRole]
+
+  MaintenanceWindowStart:
+    Type: AWS::SSM::MaintenanceWindow
+    Properties:
+      Name: rds_start
+      Schedule: 'cron(0 9 ? * MON-FRI *)'
+      ScheduleTimezone: "America/Sao_Paulo"
+      Duration: 2 
+      Cutoff: 1
+      AllowUnassociatedTargets: yes 
+      Description: 'This maintenance window to start a RDS'
+      Tags:
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: service
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [ Tags, squad, value ]
+        - Key: slack
+          Value: !FindInMap [ Tags, slack, value ]
+
+  MaintenanceWindowStop:
+    Type: AWS::SSM::MaintenanceWindow
+    Properties:
+      Name: rds_stop
+      Schedule: 'cron(0 19 ? * MON-FRI *)'
+      ScheduleTimezone: "America/Sao_Paulo"
+      Duration: 2 
+      Cutoff: 1
+      AllowUnassociatedTargets: yes 
+      Description: 'This maintenance window to stop a RDS'
+      Tags:
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: service
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [ Tags, squad, value ]
+        - Key: slack
+          Value: !FindInMap [ Tags, slack, value ]
+
+  StartMaintenanceWindowTarget:
+    Type: AWS::SSM::MaintenanceWindowTarget
+    Properties:
+      Name: rds_ssm_automation_start
+      Description: rds_ssm_automation_start
+      WindowId: !Ref MaintenanceWindowStart
+      ResourceType: RESOURCE_GROUP
+      Targets:
+      - Key: resource-groups:Name
+        Values:
+        - !Ref TagBasedStartStopResourceGroup
+      - Key: resource-groups:ResourceTypeFilters
+        Values:
+        - AWS::RDS::DBInstance
+
+  StopMaintenanceWindowTarget:
+    Type: AWS::SSM::MaintenanceWindowTarget
+    Properties:
+      Name: rds_ssm_automation_stop
+      Description: rds_ssm_automation_stop
+      WindowId: !Ref MaintenanceWindowStop
+      ResourceType: RESOURCE_GROUP
+      Targets:
+      - Key: resource-groups:Name
+        Values:
+        - !Ref TagBasedStartStopResourceGroup
+      - Key: resource-groups:ResourceTypeFilters
+        Values:
+        - AWS::RDS::DBInstance
+
+  StartMaintenanceWindowTask:
+    Type: AWS::SSM::MaintenanceWindowTask
+    Properties:
+      Name: start_rds_instances
+      WindowId: !Ref MaintenanceWindowStart
+      Targets: 
+        - Key: WindowTargetIds
+          Values:
+          - !Ref StartMaintenanceWindowTarget
+      TaskArn: !Ref AutomationSSMStartTaskARN
+      ServiceRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM
+      TaskType: AUTOMATION
+      TaskInvocationParameters:
+        MaintenanceWindowAutomationParameters:
+          Parameters:
+            InstanceId:
+              - "{{RESOURCE_ID}}"
+            AutomationAssumeRole: [!GetAtt SSMAutomationRole.Arn]
+      Priority: 1
+      MaxConcurrency: 100%
+      MaxErrors: 100%
+
+  StopMaintenanceWindowTask:
+    Type: AWS::SSM::MaintenanceWindowTask
+    Properties:
+      Name: stop_rds_instances
+      WindowId: !Ref MaintenanceWindowStop
+      Targets: 
+        - Key: WindowTargetIds
+          Values:
+          - !Ref StopMaintenanceWindowTarget
+      TaskArn: !Ref AutomationSSMStopTaskARN
+      ServiceRoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM
+      TaskType: AUTOMATION
+      TaskInvocationParameters:
+        MaintenanceWindowAutomationParameters:
+          Parameters:
+            InstanceId:
+              - "{{RESOURCE_ID}}"
+            AutomationAssumeRole: [!GetAtt SSMAutomationRole.Arn]
+      Priority: 1
+      MaxConcurrency: 100%
+      MaxErrors: 100%
+
+  TagBasedStartStopResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name: RDSDBInstanceStartStop
+      Description: Resource group for RDS DB instances that should be started and stopped
+      ResourceQuery:
+        Type: TAG_FILTERS_1_0 
+        Query:
+          ResourceTypeFilters: 
+            - AWS::RDS::DBInstance 
+          TagFilters:
+            - Key: ssm_automation_start_stop
+              Values: 
+              - true
+      Tags:
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: service
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !FindInMap [ Tags, squad, value ]
+        - Key: slack
+          Value: !FindInMap [ Tags, slack, value ]
+
+Outputs:
+  SSMAutomationRole:
+    Value: !GetAtt 'SSMAutomationRole.Arn'
+  RoleId:
+    Description: The logical ID of the IAM role
+    Value: !Ref SSMAutomationRole
+  RoleArn:
+    Description: The ARN of the IAM role
+    Value: !GetAtt [SSMAutomationRole, Arn]
+  PolicyId:
+    Description: The logical ID of the IAM policy
+    Value: !Ref CustomPolicyForRDS

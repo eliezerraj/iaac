@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template create s3 bucket/policy
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  S3BucketName:
+    Description: Bucket Name
+    Type: String
+  IDAccountCondition:
+    Type: String
+    Default: 99999999
+
+Resources:
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3BucketName
+                - /*
+            Principal:
+              '*'
+            Condition:
+              StringLike:
+                's3:ResourceAccount':
+                  - !Ref IDAccountCondition

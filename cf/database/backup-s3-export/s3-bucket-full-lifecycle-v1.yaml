@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template create s3 bucket/policy v1
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  S3BucketName:
+    Description: Bucket Name
+    Type: String
+  BusinessUnitName:
+    Type: String
+    Default: banking
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: rds architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  Owner:
+    Type: String
+    Default: architecture
+  KMSKey:
+    Type: String
+    Default: arn:aws:kms:us-east-2:908671954593:key/748d0575-ad99-49ee-93d8-497cbb22f9ce  
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref S3BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "aws:kms"
+              KMSMasterKeyID: !Ref KMSKey
+      AccessControl: Private
+      LifecycleConfiguration:
+        Rules:
+          - Id: GlacierRule
+            Prefix: glacier
+            Status: Enabled
+            ExpirationInDays: 1827
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: "INTELLIGENT_TIERING"
+              - TransitionInDays: 180
+                StorageClass: GLACIER
+      Tags:
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
+      - Key: name
+        Value: !Join ['', [!Ref S3BucketName, "-bucket"]]
+      - Key: resource
+        Value: Bucket
+      - Key: business_unit
+        Value: !Ref BusinessUnitName
+      - Key: platform
+        Value: !Ref PlatformName
+      - Key: application
+        Value: !Ref ApplicationName
+      - Key: component
+        Value: !Ref ComponentName
+      - Key: owner
+        Value: !Ref Owner
+      - Key: pci_classification
+        Value: !Ref PciClassificationName
+      - Key: pci_scope
+        Value: !Ref PciScope
+
+Outputs:
+  BucketName:
+    Value: !Ref S3Bucket
+    Description: The name of the bucket
+  BucketArn: 
+    Value: !GetAtt S3Bucket.Arn
+    Description: The buckey ARN

@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create KMS v1
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  BusinessUnitName:
+    Type: String
+    Default: banking
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: rds architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  Owner:
+    Type: String
+    Default: architecture
+
+Resources:
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      EnableKeyRotation: true
+      Description: "KMS Key for encryption RDS Backup"
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: S3KmsKey
+        Statement:
+          - Sid: Allows admin of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: ["kms:*"]
+            Resource: "*"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: kmsRdsS3Backup
+        - Key: resource
+          Value: KMS
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
+
+  KMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/kmsRdsS3Backup
+      TargetKeyId: !Ref KMSKey
+
+Outputs:
+  KMSKey:
+    Description: "The KMS Key ID"
+    Value: !Ref KMSKey
+  KMSKeyArn:
+    Description: "The ARN of the KMS Key"
+    Value: !GetAtt KMSKey.Arn
+  KMSAliasArn:
+    Description: "The ARN of the KMS Alias"
+    Value: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/kmsRdsS3Backup"

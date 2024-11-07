@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Backup Plan template
+
+Parameters:
+  BackupName:
+    Type: String
+    Default: backup-rds
+    Description: Name of the Backup Plan
+  TagKey:
+    Type: String
+    Default: backup_rds
+    Description: Enter the tag KEY of the RDS bucket
+  TagValue:
+    Type: String
+    Default: true
+    Description: Enter the tag VALUE of the RDS bucket
+  LifecycleDeleteAfterDays:
+    Type: Number
+    Default: 120
+    Description: Number of days after creation that Backup is deleted. (Must be greater than 90 days)
+  LifecycleMoveToColdStorageAfterDays:
+    Type: Number
+    Default: 14
+    Description: Number of days to move Backuo to cold storage.
+
+Resources:
+  BackupRDSVault:
+    Type: AWS::Backup::BackupVault
+    Properties:
+      BackupVaultName: !Join ['', [!Ref BackupName, "-backup-vault"]]
+
+  BackupRDSPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: !Join ['', [!Ref BackupName, "-backup-plan"]] 
+        BackupPlanRule:
+          - RuleName: "RuleForDailyBackups"
+            TargetBackupVault: !Ref BackupRDSVault
+            ScheduleExpression: "cron(0 5 ? * * *)"
+            StartWindowMinutes: 60
+            CompletionWindowMinutes : 120
+            Lifecycle:
+              DeleteAfterDays: !Ref LifecycleDeleteAfterDays
+              MoveToColdStorageAfterDays: !Ref LifecycleMoveToColdStorageAfterDays
+            #CopyActions: 
+            #  - DestinationBackupVaultArn: !Sub "arn:aws:backup:us-east-1:${AWS::AccountId}:backup-vault/BackupRDSVault"
+            #    Lifecycle: 
+            #      DeleteAfterDays: 30
+    DependsOn: BackupRDSVault
+
+  BackupRDSRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "backup.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+
+  TagBasedRDSBackupSelection:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedS3BackupSelection"
+        IamRoleArn: !GetAtt BackupRDSRole.Arn
+        ListOfTags:
+          - ConditionType: "STRINGEQUALS"
+            ConditionKey:
+              Ref: TagKey
+            ConditionValue:
+              Ref: TagValue
+      BackupPlanId: !Ref BackupRDSPlan
+    DependsOn: BackupRDSPlan      

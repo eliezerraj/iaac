@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template Role and Policy v1
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  BusinessUnitName:
+    Type: String
+    Default: banking
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: rds architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  PciScope:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  Owner:
+    Type: String
+    Default: architecture
+  RoleName: 
+    Type: String
+    Default: S3BackupRole-Eliezer
+
+Resources:
+  S3RdsBackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: export.rds.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3RdsBackupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - 's3:PutObject*'
+                - 's3:ListBucket'
+                - 's3:DeleteObject*'
+                - 's3:GetObject*'
+                - 's3:GetBucketLocation'
+                Effect: Allow
+                Resource: 
+                - "arn:aws:s3:::908671954593-rds-backup"
+                - "arn:aws:s3:::908671954593-rds-backup/*"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref RoleName
+        - Key: resource
+          Value: Role
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: pci_scope
+          Value: !Ref PciScope
+
+Outputs:
+  S3RdsBackupRole:
+    Value: !GetAtt 'S3RdsBackupRole.Arn'

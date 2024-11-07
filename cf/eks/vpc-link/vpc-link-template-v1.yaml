@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template VpcLink v1
+
+Parameters:
+  Name:
+    Description: Name this Vpc Link.
+    Type: String
+  LoadBalancerArn:
+    Description: Load balancer ARN.  
+    Type: String
+  Env:
+    Type: String
+  PlatformName:
+    Type: String
+  ApplicationName:
+    Type: String
+  OwnerName:
+    Type: String
+  ComponentName:
+    Type: String
+  PciClassificationName:
+    Type: String
+  BusinessUnitName:
+    Type: String
+    
+Resources:
+  VpcLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Description: !Join
+        - ' '
+        - - Vpc Link to use for integration this 
+          - !Ref Name
+          - with API REST      
+      Name: !Ref Name
+      TargetArns: 
+        - !Ref LoadBalancerArn
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref DynamoDBTableName
+        - Key: resource
+          Value: vpc-link
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
+          
+Outputs:
+  VpcLinkId:
+    Description: Id the VpcLink
+    Value: !Ref VpcLink
+    Export:
+      Name: !Sub VpcLinkId${Name}

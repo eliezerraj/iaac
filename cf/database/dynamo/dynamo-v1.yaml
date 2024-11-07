@@ -1,0 +1,181 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template Create DynamoDB v1
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  DynamoDBTableName:
+    Type: String
+    Default: my-architecture-table
+  PlatformName:
+    Type: String
+    Default: architecture
+  ApplicationName:
+    Type: String
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  BusinessUnitName:
+    Type: String
+    Default: banking
+  ReadCapacityUnits:
+    Type: Number
+    Default: 1
+  WriteCapacityUnits:
+    Type: Number
+    Default: 1
+  IsTimeToLive:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  IsDeletionProtectionEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  IsPointInTimeRecoveryEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  IsBackupEnabled:
+    Type: String
+    AllowedValues: [ true, false ]
+    Default: true
+  DefaultBillingMode:
+    Type: String
+    Default: PAY_PER_REQUEST
+    AllowedValues:
+      - PROVISIONED
+      - PAY_PER_REQUEST
+
+Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      BillingMode: !Ref DefaultBillingMode
+      PointInTimeRecoverySpecification: 
+         PointInTimeRecoveryEnabled:  !Ref IsPointInTimeRecoveryEnabled
+      DeletionProtectionEnabled: !Ref IsDeletionProtectionEnabled
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S         
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: index
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      #ProvisionedThroughput:   
+        #ReadCapacityUnits:  !Ref ReadCapacityUnits
+        #WriteCapacityUnits: !Ref WriteCapacityUnits
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: !Ref IsTimeToLive
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref DynamoDBTableName
+        - Key: resource
+          Value: dynamo
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: backup
+          Value: !Ref IsBackupEnabled
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
+
+  CustomPolicyForDynamo:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Join ['', [!Ref DynamoDBTableName, "-custom-policy"]]
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Action: 
+              - 'dynamodb:Scan'
+            Resource: !GetAtt DynamoDBTable.Arn
+          - Effect: Allow
+            Action: 
+              - 'dynamodb:BatchGetItem'
+              - 'dynamodb:BatchWriteItem*'
+              - 'dynamodb:ConditionCheckItem'
+              - 'dynamodb:PutItem'
+              - 'dynamodb:DescribeTable'
+              - 'dynamodb:DeleteItem'
+              - 'dynamodb:GetItem'
+              - 'dynamodb:Query'
+              - 'dynamodb:UpdateItem'
+            Resource: !GetAtt DynamoDBTable.Arn
+
+  CustomPolicyForIndexDynamo:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Join ['', [!Ref DynamoDBTableName, "-index-custom-policy"]]
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Action: 
+              - 'dynamodb:Scan'
+            Resource:  !Join ['', [!GetAtt DynamoDBTable.Arn, "/index/*"]]
+          - Effect: Allow
+            Action: 
+              - 'dynamodb:GetShardIterator'
+              - 'dynamodb:Query'
+              - 'dynamodb:DescribeStream'
+              - 'dynamodb:GetRecords'
+              - 'dynamodb:ListStreams'
+            Resource: !Join ['', [!GetAtt DynamoDBTable.Arn, "/index/*"]]
+
+Outputs:
+  DynamoDBTable:
+    Value: !Ref DynamoDBTableName
+  DynamoDBTableARN:
+    Value: !GetAtt DynamoDBTable.Arn
+  CustomPolicyForDynamo:
+    Value: !Ref CustomPolicyForDynamo
+  CustomPolicyForIndexDynamo:
+    Value: !Ref CustomPolicyForIndexDynamo

@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A CloudFormation template that creates a role
+
+Parameters:
+  AmazonSSMAutomationPolicyARN:
+    Type: String
+    Description: "The ARN of role"
+    Default: arn:aws:iam::aws:policy/service-role/AmazonSSMAutomationRole
+
+Resources:
+  SSMAutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ssm-automation-role-eliezer 
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref AmazonSSMAutomationPolicyARN
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+
+  CustomPolicyForRDS:
+    DependsOn: SSMAutomationRole
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: customSSMRDSManagementPolicy 
+      Description: Customer managed policy to management RDS
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - 'rds:StopDBInstance'
+              - 'rds:StartDBInstance'
+              - 'rds:DescribeDBInstances'
+            Resource: '*'
+      Roles: 
+          - !Ref SSMAutomationRole
+
+Outputs:
+  SSMAutomationRole:
+    Value: !GetAtt 'SSMAutomationRole.Arn'

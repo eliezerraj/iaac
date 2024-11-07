@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Backup Plan template
+
+Parameters:
+  BackupName:
+    Type: String
+    Default: backup-s3
+    Description: Name of the Backup Plan
+  TagKey:
+    Type: String
+    Default: backup_s3
+    Description: Enter the tag KEY of the S3 bucket
+  TagValue:
+    Type: String
+    Default: true
+    Description: Enter the tag VALUE of the S3 bucket
+  LifecycleDeleteAfterDays:
+    Type: Number
+    Default: 120
+    Description: Number of days after creation that Backup is deleted. (Must be greater than 90 days)
+  LifecycleMoveToColdStorageAfterDays:
+    Type: Number
+    Default: 14
+    Description: Number of days to move Backuo to cold storage.
+
+Resources:
+  BackupS3Vault:
+    Type: AWS::Backup::BackupVault
+    Properties:
+      BackupVaultName: !Join ['', [!Ref BackupName, "-backup-vault"]]
+
+  BackupS3Plan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: !Join ['', [!Ref BackupName, "-backup-plan"]] 
+        BackupPlanRule:
+          - RuleName: "RuleForDailyBackups"
+            TargetBackupVault: !Ref BackupS3Vault
+            ScheduleExpression: "cron(0 5 ? * * *)"
+            StartWindowMinutes: 60
+            CompletionWindowMinutes : 120
+            Lifecycle:
+              DeleteAfterDays: !Ref LifecycleDeleteAfterDays
+              MoveToColdStorageAfterDays: !Ref LifecycleMoveToColdStorageAfterDays
+    DependsOn: BackupS3Vault
+
+  BackupS3Role:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "backup.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AWSBackupFullAccess"
+      Policies:
+        - PolicyName: AWSBackupS3Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - "events:*"
+                Resource: "*"
+                Effect: Allow
+
+  TagBasedS3BackupSelection:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedS3BackupSelection"
+        IamRoleArn: !GetAtt BackupS3Role.Arn
+        ListOfTags:
+          - ConditionType: "STRINGEQUALS"
+            ConditionKey:
+              Ref: TagKey
+            ConditionValue:
+              Ref: TagValue
+      BackupPlanId: !Ref BackupS3Plan
+    DependsOn: BackupS3Plan      
