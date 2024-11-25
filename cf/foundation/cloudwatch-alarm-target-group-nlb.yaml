@@ -13,7 +13,7 @@ Parameters:
       - prd
   EmailSNSEndpoint: 
     Type: String
-    Default: eliezer.junior@xpto.tech
+    Default: eliezer.junior@dock.tech
   TopicName:
     Type: String
     Default: target-group-monitoring
@@ -22,13 +22,10 @@ Parameters:
     Default: architecture
   LoadBalancerFullName: 
     Type: String
-    Default: app/alb-teste-2/bb8444c5ba16f69d
+    Default: net/vpce-global-nlb-dev/8d531d1119f30e59
   TargetGroupFullName01:
     Type: String
-    Default: targetgroup/tg-priv-80/4417d6a40a66496c
-  TargetGroupFullName02:
-    Type: String
-    Default: targetgroup/tg-priv-81/7f05257aab9419e5
+    Default: targetgroup/global-vpcendpoint-tg/6c94abe19506234e
 
 Resources:
   TopicSNS:
@@ -84,7 +81,7 @@ Resources:
       AlarmDescription: >-
         Monitoring unhealthy ELB target group.
       MetricName: UnHealthyHostCount
-      Namespace: AWS/ApplicationELB
+      Namespace: AWS/NetworkELB
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
@@ -93,39 +90,6 @@ Resources:
       Dimensions:
         - Name: 'TargetGroup'
           Value: !Ref TargetGroupFullName01
-        - Name: 'LoadBalancer'
-          Value: !Ref LoadBalancerFullName
-      AlarmActions:
-        - !Ref TopicSNS
-      DatapointsToAlarm: 1
-      Tags:
-        - Key: env
-          Value: !Ref Env
-        - Key: stack
-          Value: !Sub ${AWS::StackName}
-        - Key: squad
-          Value: architecture
-        - Key: resource
-          Value: cloudwatch-log
-        - Key: owner
-          Value: !Ref OwnerName
-
-  TargetGroupMonitoring02:
-    Type: 'AWS::CloudWatch::Alarm'
-    Properties:
-      AlarmName: UnHealthyHostCount-02
-      AlarmDescription: >-
-        Monitoring unhealthy ELB target group.
-      MetricName: UnHealthyHostCount
-      Namespace: AWS/ApplicationELB
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanThreshold
-      Dimensions:
-        - Name: 'TargetGroup'
-          Value: !Ref TargetGroupFullName02
         - Name: 'LoadBalancer'
           Value: !Ref LoadBalancerFullName
       AlarmActions:

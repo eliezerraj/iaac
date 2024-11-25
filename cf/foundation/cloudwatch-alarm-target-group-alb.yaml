@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template to Alarm TG
+
+Parameters:
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  EmailSNSEndpoint: 
+    Type: String
+    Default: eliezer.junior@dock.tech
+  TopicName:
+    Type: String
+    Default: target-group-monitoring
+  OwnerName:
+    Type: String
+    Default: architecture
+  LoadBalancerFullName: 
+    Type: String
+    Default: app/alb-teste-2/bb8444c5ba16f69d
+  TargetGroupFullName01:
+    Type: String
+    Default: targetgroup/tg-priv-80/4417d6a40a66496c
+  TargetGroupFullName02:
+    Type: String
+    Default: targetgroup/tg-priv-81/7f05257aab9419e5
+
+
+Resources:
+  TopicSNS:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: !Ref TopicName
+      Subscription:
+        - Endpoint: !Ref EmailSNSEndpoint
+          Protocol: email
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: architecture
+        - Key: resource
+          Value: sns-topic
+        - Key: owner
+          Value: !Ref OwnerName
+
+  SNSEmailPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'SNS:GetTopicAttributes'
+              - 'SNS:SetTopicAttributes'
+              - 'SNS:AddPermission'
+              - 'SNS:RemovePermission'
+              - 'SNS:DeleteTopic'
+              - 'SNS:Subscribe'
+              - 'SNS:ListSubscriptionsByTopic'
+              - 'SNS:Publish'
+              - 'SNS:Receive'
+            Condition:
+              StringEquals:
+                'aws:SourceOwner': !Sub ${AWS::AccountId}
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Resource: !Ref TopicSNS
+            Sid: '0'
+        Version: 2012-10-17
+      Topics:
+        - !Ref TopicSNS
+
+  TargetGroupMonitoring01:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: UnHealthyHostCount-01
+      AlarmDescription: >-
+        Monitoring unhealthy ELB target group.
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: 'TargetGroup'
+          Value: !Ref TargetGroupFullName01
+        - Name: 'LoadBalancer'
+          Value: !Ref LoadBalancerFullName
+      AlarmActions:
+        - !Ref TopicSNS
+      DatapointsToAlarm: 1
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: architecture
+        - Key: resource
+          Value: cloudwatch-log
+        - Key: owner
+          Value: !Ref OwnerName
+
+  TargetGroupMonitoring02:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: UnHealthyHostCount-02
+      AlarmDescription: >-
+        Monitoring unhealthy ELB target group.
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: 'TargetGroup'
+          Value: !Ref TargetGroupFullName02
+        - Name: 'LoadBalancer'
+          Value: !Ref LoadBalancerFullName
+      AlarmActions:
+        - !Ref TopicSNS
+      DatapointsToAlarm: 1
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: architecture
+        - Key: resource
+          Value: cloudwatch-log
+        - Key: owner
+          Value: !Ref OwnerName

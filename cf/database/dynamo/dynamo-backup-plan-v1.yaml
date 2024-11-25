@@ -39,7 +39,7 @@ Resources:
             TargetBackupVault: !Ref BackupDynamoVault
             ScheduleExpression: "cron(0 5 ? * * *)"
             StartWindowMinutes: 60
-            CompletionWindowMinutes : 120
+            CompletionWindowMinutes : 30
             Lifecycle:
               DeleteAfterDays: !Ref LifecycleDeleteAfterDays
               MoveToColdStorageAfterDays: !Ref LifecycleMoveToColdStorageAfterDays

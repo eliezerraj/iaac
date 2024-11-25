@@ -34,6 +34,9 @@ Parameters:
     AllowedValues:
       - true
       - false
+  Owner:
+    Type: String
+    Default: architecture
   EngineVersion:
     Type: String
     Default: 16.3
@@ -64,9 +67,6 @@ Parameters:
   MasterUserPasswordName:
     Type: String
     Default: postgres
-  Owner:
-    Type: String
-    Default: architecture
   isMultiAZ:
     Description: Multi AZ
     Type: "String"
