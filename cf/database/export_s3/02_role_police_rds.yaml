@@ -19,7 +19,7 @@ Resources:
   RdsS3ExportRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: rds-s3-export-role
+      RoleName: rds-s3-export-role-v1
       Path: /
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -30,7 +30,7 @@ Resources:
             Action: sts:AssumeRole
             Condition:
               StringEquals:
-                aws:SourceAccount: ${AWS::AccountId}
+                aws:SourceAccount: !Sub ${AWS::AccountId}
                 aws:SourceArn: !Sub arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:db:*
       Tags:
       - Key: env
@@ -46,19 +46,22 @@ Resources:
     DependsOn: RdsS3ExportRole
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: rds-s3-export-policy 
+      ManagedPolicyName: rds-s3-export-policy-v1 
       Path: '/'
       PolicyDocument: 
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Action: 
+              - 's3:PutObject*'
               - 's3:ListBucket'
               - 's3:GetObject*'
-              - 's3:DeleteObject*'
-              - 's3:GetBucketLocation'
+              - 's3:DeleteObject'
+              - 's3:GetObjectVersion'
               - 's3:AbortMultipartUpload'
-            Resource: Sub! 'arn:aws:s3:::${S3BucketName}/*'
+            Resource: 
+              - !Sub 'arn:aws:s3:::${S3BucketName}'
+              - !Sub 'arn:aws:s3:::${S3BucketName}/*'
       Roles: 
           - !Ref RdsS3ExportRole
 
