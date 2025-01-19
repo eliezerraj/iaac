@@ -9,22 +9,19 @@ Parameters:
     Description: Load balancer ARN.  
     Type: String
   Env:
+    Description: Environment.  
     Type: String
-  PlatformName:
+  Application:
     Type: String
-  ApplicationName:
+  Component:
     Type: String
-  OwnerName:
+  PciClassification:
     Type: String
-  ComponentName:
-    Type: String
-  PciClassificationName:
-    Type: String
-  BusinessUnitName:
+  Owner:
     Type: String
     
 Resources:
-  VpcLink:
+  VpcLinkNLB03:
     Type: AWS::ApiGateway::VpcLink
     Properties:
       Description: !Join
@@ -36,30 +33,28 @@ Resources:
       TargetArns: 
         - !Ref LoadBalancerArn
       Tags:
-        - Key: env
+        -
+          Key: env
           Value: !Ref Env
-        - Key: stack
+        -
+          Key: stack
           Value: !Sub ${AWS::StackName}
-        - Key: name
-          Value: !Ref DynamoDBTableName
-        - Key: resource
-          Value: vpc-link
-        - Key: business_unit
-          Value: !Ref BusinessUnitName
-        - Key: platform
-          Value: !Ref PlatformName
-        - Key: application
-          Value: !Ref ApplicationName
-        - Key: component
-          Value: !Ref ComponentName
-        - Key: pci_classification
-          Value: !Ref PciClassificationName
-        - Key: owner
-          Value: !Ref OwnerName
-          
+        -
+          Key: owner
+          Value: !Ref Owner
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: component
+          Value: !Ref Component
+        -
+          Key: pci_classification
+          Value: !Ref PciClassification
+
 Outputs:
   VpcLinkId:
     Description: Id the VpcLink
-    Value: !Ref VpcLink
+    Value: !Ref VpcLinkNLB03
     Export:
       Name: !Sub VpcLinkId${Name}

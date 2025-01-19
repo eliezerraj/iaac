@@ -1,60 +1,63 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: Creation of VpcLink v1
 
 Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
   Env:
     Type: String
     Default: dev
-  VpcLinkName:
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  LoadBalanceARN:
     Type: String
-    Default: NLB-vpce-global
-  LoadBalancerArn:
-    Type: String
-    Default: arn:aws:elasticloadbalancing:us-east-2:908671954593:loadbalancer/net/vpce-global-nlb-dev/8d531d1119f30e59
+    Default: arn:aws:elasticloadbalancing:us-east-2:908671954593:loadbalancer/net/nlb-vpce-eks-arch-02-dev/b3c3be15a9e94703
   TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/vpc-link-template.yaml
+    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-908671954593-devops-us-east-2/cf-templates/vpc-link-template-v1.yaml
 
 Mappings:
   Tag:
-    PlatformName:
-      value: vpc-link  
-    ApplicationName:
-      value: architecture
-    OwnerName:
-      value: app architecture
-    ComponentName:
-      value: vpc-link nlb architecture
-    PciClassificationName:
+    Application:
+      value: go-architecture
+    PciClassification:
       value: false
-    BusinessUnitName:
+    Component:
+      value: vpc-link
+    Owner:
       value: architecture
-      
-  VpcLink:
-    Version:
-      value: 1.0.0
-
-Conditions:
-  isPrd: !Equals [!Ref Env, prd]
-
-  isDevOrHml: !Or
-    - !Equals [!Ref Env, dev]
-    - !Equals [!Ref Env, hml]
-
+  
 Resources:
-  VpcLink:
-    Condition: isDevOrHml
+  VpcLinkNLB03:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-        Name: !Ref VpcLinkName
-        LoadBalancerArn: !Ref LoadBalancerArn
-        Env: !Ref Env
-        Service: !FindInMap [ Tag, Service, value ]
-        PlatformName: !FindInMap [ Tag, PlatformName, value ]
-        ApplicationName: !FindInMap [ Tag, ApplicationName, value ] 
-        OwnerName: !FindInMap [ Tag, OwnerName, value ]
-        ComponentName: !FindInMap [ Tag, ComponentName, value ]
-        PciClassificationName: !FindInMap [ Tag, PciClassificationName, value ]
-        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Name: NLB-vpce-eks-arch-02
+        LoadBalancerArn:
+          Ref: LoadBalanceARN
+        Env:
+          Ref: Env
+        Application:
+          Fn::FindInMap:
+          - Tag
+          - Application
+          - value
+        Component:
+          Fn::FindInMap:
+          - Tag
+          - Component
+          - value
+        PciClassification:
+          Fn::FindInMap:
+          - Tag
+          - PciClassification
+          - value
+        Owner:
+          Fn::FindInMap:
+          - Tag
+          - Owner
+          - value
       TemplateURL: !Ref TemplateURL

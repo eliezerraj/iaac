@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: template 2 loadbalancer
+Description: template loadbalancer v3
 
 Parameters:
   Env:
@@ -37,17 +37,6 @@ Parameters:
   Application:
     Description:    Please specify the Application. Used for tagging 
     Type:           String
-  BusinessUnitName:
-    Description:    Please specify the Business Unit Name. Used for tagging  
-    Type:           String
-  CloudProvider:
-    Description:    Please specify the Cloud Provider. Used for tagging
-    Type:           String
-    Default: aws
-    AllowedValues:
-      - aws
-      - azure
-      - gcp
   Component:
     Description:    Please specify the Component. Used for tagging
     Type:           String
@@ -62,16 +51,6 @@ Parameters:
       - pci
       - pci-connected
       - non-pci    
-  PCIScope:
-    Description:    Please specify if this environment is PCI Scope or not. Used for tagging  
-    Type:           String
-    Default: false
-    AllowedValues:
-      - false
-      - true
-  Platform:
-    Description:    Please specify the Platform. Used for tagging
-    Type:           String  
 
   LoadBalancerName:
     Type: String
@@ -94,7 +73,10 @@ Parameters:
     AllowedValues:
       - true
       - false
-      
+  S3BucketLogs:
+    Type: String
+    Default: ""
+
 # Region = Account AWS 908671954593=Arch
 Mappings:
   region:
@@ -113,78 +95,7 @@ Conditions:
 
 Resources:
 
-  S3BucketLogs:
-    Condition: isAccessLogsEnable
-    Type: AWS::S3::Bucket
-    Properties:
-      AccessControl: Private
-      BucketName: !Sub lb-logs-${LoadBalancerName}
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: 'AES256'
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: True
-        BlockPublicPolicy: True
-        IgnorePublicAcls: True
-        RestrictPublicBuckets: True
-      Tags:
-        - Key: Env
-          Value: !Ref Env
-        - Key: BusinessUnitName
-          Value: !Ref BusinessUnitName
-        - Key: Stack
-          Value: !Sub ${AWS::StackName}
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: Platform
-          Value: !Ref Platform
-        - Key: Application
-          Value: !Ref Application
-        - Key: Component
-          Value: !Ref Component
-        - Key: PCIScope
-          Value: !Ref PCIScope
-        - Key: PCIClassification
-          Value: !Ref PCIClassification
-        - Key: CloudProvider
-          Value: !Ref CloudProvider
-
-  S3LogsBucketPolicy:
-    DependsOn: S3BucketLogs
-    Condition: isAccessLogsEnable  
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref S3BucketLogs
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: ELBAccountLogsPermission
-            Action:
-              - 's3:PutObject'
-            Effect: Allow
-            Resource: !Sub "${S3BucketLogs.Arn}/*"
-            Principal: 
-              AWS:
-                - !Join
-                    - ''
-                    - - 'arn:aws:iam::'
-                      - !FindInMap  
-                          - region
-                          - !Ref AWS::Region
-                          - value
-                      - ':root'
-          - Sid: AWSLogDeliveryWrite
-            Action:
-              - 's3:PutObject'
-            Effect: Allow
-            Resource: !Sub "${S3BucketLogs.Arn}/*"
-            Principal: 
-              Service:
-                - delivery.logs.amazonaws.com
-
   LoadBalancer:
-    #DependsOn: S3BucketLogs
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       IpAddressType: !Ref IpAddressType
@@ -199,59 +110,52 @@ Resources:
           Value: true      
         - Key: deletion_protection.enabled
           Value: !If [ isPrd, true, false ]
-        #- Key: access_logs.s3.enabled
-        #  Value: !Ref AccessLogsEnable           
-        #-
-        #  !If
-        #    - isAccessLogsEnable
-        #    - Key: access_logs.s3.bucket
-        #      Value: !Ref S3BucketLogs
-        #    - !Ref AWS::NoValue          
+        - Key: access_logs.s3.enabled
+          Value: !Ref AccessLogsEnable           
+        -
+          !If
+            - isAccessLogsEnable
+            - Key: access_logs.s3.bucket
+              Value: !Ref S3BucketLogs
+            - !Ref AWS::NoValue          
       Tags:
         - 
-          Key: Env
+          Key: env
           Value: !Ref Env
         - 
-          Key: BusinessUnitName
-          Value: !Ref BusinessUnitName
-        - 
-          Key: Stack
+          Key: stack
           Value: !Sub ${AWS::StackName}
         - 
-          Key: Owner
+          Key: owner
           Value: !Ref Owner
         - 
-          Key: Platform
-          Value: !Ref Platform
-        - 
-          Key: Application
+          Key: application
           Value: !Ref Application
         - 
-          Key: Component
+          Key: component
           Value: !Ref Component
         - 
-          Key: PCIScope
-          Value: !Ref PCIScope
-        - 
-          Key: PCIClassification
+          Key: pciClassification
           Value: !Ref PCIClassification
-        - 
-          Key: CloudProvider
-          Value: !Ref CloudProvider
 
   NLBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for the NLB
       VpcId: !Ref VpcId
+      Name:  !Sub "sec-grp-${LoadBalancerName}"
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref CidrIp
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
           CidrIp: !Ref CidrIp
       Tags:
-        - Key: Name
-          Value: NLBSecurityGroup
+        - Key: name
+          Value: !Sub "sec-grp-${LoadBalancerName}"
         -
           Key: resource
           Value: security-group
