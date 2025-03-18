@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creation of NLB for the Onbording
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.1
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  VPCEndpointIPs:
+    Default: 10.214.148.120,10.214.78.243,10.214.236.148
+    Type: CommaDelimitedList      
+  TemplateURL:
+    Type: String
+    Default: https://s3.us-east-2.amazonaws.com/eliezerraj-908671954593-devops-us-east-2/cf-templates/nlb-template-vpce-v3.yaml
+  CustomDNS:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  #ListenerPort:
+  #  Type: String
+  #  Default: 80
+  AccessLogsEnable:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  S3BucketLogs:
+    Type: String
+    Default: 908671954593-dev-vpce-nlb-arch-eks-02-nlb-log
+
+Mappings:
+  Network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+      CertificateArn: arn:aws:acm:us-east-2:020341112536:certificate/86c1e3c9-dc31-4577-a3f9-df9fb06e9f4f
+      HostedZoneId: Z032031337N3G0ZYNJ75U
+      DomainName: vpce-nlb-onboarding.global.dev.caradhras.io
+        
+  Tag:
+    Application:
+      value: app onboarding
+    Component:
+      value: nlb
+    Owner:
+      value: onbording
+  Nlb:
+    Version:
+      value: 1.0.0
+
+Conditions:
+  isPrd: !Equals [!Ref Env, prd]
+
+Resources:
+  Nlb:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        IpAddressType: ipv4
+        LoadBalancerName: !Sub nlb-vpce-eks-arch-02-${Env}
+        Scheme: internal
+        LoadBalancerType: network
+        AccessLogsEnable: !Ref AccessLogsEnable
+        SubnetIds:
+          !Join
+          - ","
+          - - !FindInMap [ Network, !Ref Env, SubnetAZA ]
+            - !FindInMap [ Network, !Ref Env, SubnetAZB ] 
+            - !FindInMap [ Network, !Ref Env, SubnetAZC ]
+        HostedZoneId: !FindInMap [ Network, !Ref Env, HostedZoneId ]
+        DomainName: !FindInMap [ Network, !Ref Env, DomainName ]
+        Env: !Ref Env
+        Owner: !FindInMap [ Tag, Owner, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: !If [isPrd, pci, non-pci]
+        CustomDNS: !Ref CustomDNS
+        VpcId: !FindInMap [ Network, !Ref Env, VpcId ]
+        CidrIp: !FindInMap [ Network, !Ref Env, VpcCidr ]
+        S3BucketLogs: !Ref S3BucketLogs
+      TemplateURL: !Ref TemplateURL
+
+  GlobalVPCEndpointListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Order: 1
+          TargetGroupArn: !Ref GlobalVPCEndpointTargets
+          Type: forward
+      LoadBalancerArn: 
+        Fn::GetAtt: [Nlb, Outputs.LoadBalancerArn]
+      Port: 443
+      Certificates:
+        - CertificateArn: !FindInMap [ Network, !Ref Env, CertificateArn ] 
+      Protocol: TLS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-0-2021-06
+
+ # GlobalVPCEndpointListenerbNoTLS:
+ #   Type: AWS::ElasticLoadBalancingV2::Listener
+ #   Properties:
+  #    DefaultActions:
+  #      - Order: 2
+  #        TargetGroupArn: !Ref GlobalVPCEndpointTargets
+  #        Type: forward
+  #    LoadBalancerArn: 
+  #      Fn::GetAtt: [Nlb, Outputs.LoadBalancerArn]
+  #    Port: !Ref ListenerPort
+  #    Protocol: TLS
+
+  GlobalVPCEndpointTargets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: vpce-nlb-onbording-tg
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPort: 443
+      HealthCheckProtocol: TCP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 443
+      Protocol: TLS
+      TargetType: ip
+      Targets:
+      - Id: !Select [ 0, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 1, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 2, !Ref VPCEndpointIPs ]
+      VpcId: !FindInMap [ Network, !Ref Env, VpcId ] 
+      Tags:
+        - Key: name
+          Value: vpce-nlb-onbording-tg
+        -
+          Key: env
+          Value: !Ref Env
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        -
+          Key: application
+          Value: !FindInMap [ Tag, Application, value ]
+        -
+          Key: owner
+          Value: !FindInMap [ Tag, Owner, value ]
+        -
+          Key: component
+          Value: target-grp
+        -
+          Key: pciClassification
+          Value: !If [isPrd, pci, non-pci]
+
+  GlobalVPCEndpointSG: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !FindInMap [ Network, dev, VpcId ]
+      GroupName: on-boarding-nlb-vpce-sg
+      GroupDescription: 'security group for on-boarding nlb'
+      SecurityGroupIngress:
+      - CidrIp: !FindInMap [ Network, dev, VpcCidr ]
+        FromPort: 443
+        IpProtocol: tcp
+        ToPort: 443
+        Description: "allow access to account: on-boarding nlb"
+      SecurityGroupEgress:
+        - Description: Allow outbound traffic
+          IpProtocol: '-1'
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: name
+          Value: banking-vpcendpoint-tg
+        -
+          Key: env
+          Value: !Ref Env
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        -
+          Key: application
+          Value: !FindInMap [ Tag, Application, value ]
+        -
+          Key: owner
+          Value: !FindInMap [ Tag, Owner, value ]
+        -
+          Key: component
+          Value: global
+        -
+          Key: pciClassification
+          Value: no-pci
+        -
+          Key: pciScope
+          Value: false
+        -
+          Key: resource
+          Value: security-group 

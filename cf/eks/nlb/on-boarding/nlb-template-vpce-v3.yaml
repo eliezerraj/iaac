@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: template loadbalancer v3
+
+Parameters:
+  Env:
+    Description: Environment.  
+    Type: String
+  VpcId:
+    Type: String
+  CidrIp:
+    Type: String
+  SubnetIds:
+    Type: 'List<String>'
+  LoadBalancerType:
+    Type: String
+    Default: network
+    AllowedValues:
+      - network
+      - application
+      - gateway
+  Scheme:
+    Type: String
+    Default: internal
+    AllowedValues:
+      - internal
+      - internet-facing
+  IpAddressType:
+    Type: String
+    Default: ipv4
+    AllowedValues:
+      - ipv4
+      - dualstack
+  WebACLArn:
+    Type: String
+    Default: NoValue
+
+  Application:
+    Description:    Please specify the Application. Used for tagging 
+    Type:           String
+  Component:
+    Description:    Please specify the Component. Used for tagging
+    Type:           String
+  Owner:
+    Description:    Please specify the Owner. Used for tagging  
+    Type:           String   
+  PCIClassification:
+    Description:    Please specify the PCI Classification of environment. Used for tagging  
+    Type:           String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci    
+
+  LoadBalancerName:
+    Type: String
+  HostedZoneId:
+    Type: String
+    Default: ""
+  DomainName:
+    Type: String
+    Default: ""
+  CustomDNS:
+    Description: Record Set DNS to endpoint of Redis
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+  AccessLogsEnable:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  S3BucketLogs:
+    Type: String
+    Default: ""
+
+# Region = Account AWS 908671954593=Arch
+Mappings:
+  region:
+    us-east-1:
+      value: 992382474575
+    sa-east-1:
+      value: 992382474575
+    us-east-2:
+      value: 992382474575      
+
+Conditions:
+  isAlb: !Equals [!Ref LoadBalancerType, application]
+  isAccessLogsEnable: !Equals [!Ref AccessLogsEnable, false]
+  isPrd: !Equals [!Ref Env, prd]  
+  isCustomDNS: !Equals [!Ref CustomDNS, true]
+
+Resources:
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: !Ref IpAddressType
+      Name: !Ref LoadBalancerName
+      Scheme: !Ref Scheme
+      Subnets: !Ref SubnetIds
+      Type: !Ref LoadBalancerType
+      SecurityGroups:
+        - !Ref NLBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true      
+        - Key: deletion_protection.enabled
+          Value: !If [ isPrd, true, false ]
+        - Key: access_logs.s3.enabled
+          Value: !Ref AccessLogsEnable           
+        -
+          !If
+            - isAccessLogsEnable
+            - Key: access_logs.s3.bucket
+              Value: !Ref S3BucketLogs
+            - !Ref AWS::NoValue          
+      Tags:
+        - 
+          Key: env
+          Value: !Ref Env
+        - 
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        - 
+          Key: owner
+          Value: !Ref Owner
+        - 
+          Key: application
+          Value: !Ref Application
+        - 
+          Key: component
+          Value: !Ref Component
+        - 
+          Key: pciClassification
+          Value: !Ref PCIClassification
+
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the NLB
+      VpcId: !Ref VpcId
+      Name:  !Sub "sec-grp-${LoadBalancerName}"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref CidrIp
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref CidrIp
+      Tags:
+        - Key: name
+          Value: !Sub "sec-grp-${LoadBalancerName}"
+        -
+          Key: resource
+          Value: security-group
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+
+  WebACLAssociation:
+    Condition: isAlb
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref LoadBalancer
+      WebACLArn: !Ref WebACLArn
+
+  RecordSet:
+    Condition: isCustomDNS
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      AliasTarget:
+        HostedZoneId: !GetAtt [LoadBalancer, CanonicalHostedZoneID]
+        DNSName: !GetAtt [LoadBalancer, DNSName]
+
+Outputs:
+  LoadBalancerArn:
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub ${LoadBalancerName}-Arn
+  LoadBalancerDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub ${LoadBalancerName}-DNSName
+  LoadBalancerCanonicalHostedZoneID:
+    Value: !GetAtt LoadBalancer.CanonicalHostedZoneID
+    Export:
+      Name: !Sub ${LoadBalancerName}-CanonicalHostedZoneID

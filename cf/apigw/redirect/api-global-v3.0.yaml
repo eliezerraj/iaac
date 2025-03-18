@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Criacao de API Gateway para redirect
+Description: Criacao de API Gateway para redirect - v3.0 12/03/2025
 Parameters:
   Versao:
     Type: String
@@ -17,7 +17,7 @@ Parameters:
     Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/apigw-1-pub-global-v1-template-redirect.yaml
   AuthorizerUri:
     Type: String
-    Default: arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:908671954593:function:lambda-go-auth-apigw/invocations
+    Default: arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:908671954593:function:go-oauth-apigw-authorizer-lambda/invocations
   AccountAPIPrivateId:
     Type: String
     Default: 129t4y8eoj
@@ -42,6 +42,9 @@ Parameters:
   VpcLinkIdglobal:
     Type: String
     Default: iwcrjm
+  OrderAPIPrivateId:
+    Type: String
+    Default: bvmub7vb2h
   VPCEndpointDNS:
     Type: String
     Default: vpce-arch-eks-01.architecture.caradhras.io #alias r53 for nlb
@@ -215,9 +218,9 @@ Resources:
         DataTraceEnabled: true
         LoggingLevel: INFO
       TracingEnabled: true
-      CanarySetting:
-        PercentTraffic: 30  # Route 30% of traffic to the canary
-        UseStageCache: false  # Disable caching for canary deployments
+      #CanarySetting:
+      #  PercentTraffic: 50  # Route 30% of traffic to the canary
+      #  UseStageCache: false  # Disable caching for canary deployments
       DefinitionBody:
         swagger: '2.0'
         info:
@@ -238,7 +241,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -267,7 +270,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -297,7 +300,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -326,7 +329,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -356,7 +359,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -385,7 +388,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -415,7 +418,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -444,7 +447,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -474,7 +477,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -503,7 +506,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -533,7 +536,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -562,7 +565,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -582,59 +585,59 @@ Resources:
                 passthroughBehavior: when_no_match
                 connectionType: VPC_LINK
                 connectionId: !Ref VpcLinkIdglobal
-          /payment-pub/{proxy+}:
-            get:
-              produces:
-              - application/json
-              responses:
-                '200':
-                  description: 200 response
-                  schema:
-                    $ref: '#/definitions/Empty'
-              security:
-              - lambda-go-auth-apigw: []
-              x-amazon-apigateway-integration:
-                type: http
-                httpMethod: GET
-                uri:
-                  Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
-                responses:
-                  default:
-                    statusCode: '200'
-                requestParameters:
-                  integration.request.path.proxy: method.request.path.proxy
-                  integration.request.header.X-Request-ID: context.requestId
-                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
-                  integration.request.header.client-id: context.authorizer.tenant_id
-                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
-                passthroughBehavior: when_no_match
-                connectionType: INTERNET 
-            post:
-              produces:
-              - application/json
-              responses:
-                '200':
-                  description: 200 response
-                  schema:
-                    $ref: '#/definitions/Empty'
-              security:
-              - lambda-go-auth-apigw: []
-              x-amazon-apigateway-integration:
-                type: http
-                httpMethod: POST
-                uri:
-                  Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
-                responses:
-                  default:
-                    statusCode: '200'
-                requestParameters:
-                  integration.request.path.proxy: method.request.path.proxy
-                  integration.request.header.X-Request-ID: context.requestId
-                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
-                  integration.request.header.client-id: context.authorizer.tenant_id
-                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
-                passthroughBehavior: when_no_match
-                connectionType: INTERNET
+          #/payment-pub/{proxy+}:
+          #  get:
+          #    produces:
+          #    - application/json
+          #    responses:
+          #      '200':
+          #        description: 200 response
+          #        schema:
+          #          $ref: '#/definitions/Empty'
+          #    security:
+          #    - go-oauth-apigw-authorizer-lambda: []
+          #    x-amazon-apigateway-integration:
+          #      type: http
+          #      httpMethod: GET
+          #      uri:
+          #        Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
+          #      responses:
+          #        default:
+          #          statusCode: '200'
+          #      requestParameters:
+          #        integration.request.path.proxy: method.request.path.proxy
+          #        integration.request.header.X-Request-ID: context.requestId
+          #        integration.request.header.X-AppClient-ID: context.authorizer.principalId
+          #        integration.request.header.client-id: context.authorizer.tenant_id
+          #        integration.request.header.X-Forwarded-For: context.identity.sourceIp
+          #      passthroughBehavior: when_no_match
+          #      connectionType: INTERNET 
+          #  post:
+          #    produces:
+          #    - application/json
+          #    responses:
+          #      '200':
+          #        description: 200 response
+          #        schema:
+          #          $ref: '#/definitions/Empty'
+          #    security:
+          #    - go-oauth-apigw-authorizer-lambda: []
+          #    x-amazon-apigateway-integration:
+          #      type: http
+          #      httpMethod: POST
+          #      uri:
+          #        Fn::Sub: https://go-payment.architecturedev.caradhras.io/{proxy}
+          #      responses:
+          #        default:
+          #          statusCode: '200'
+          #      requestParameters:
+          #        integration.request.path.proxy: method.request.path.proxy
+          #        integration.request.header.X-Request-ID: context.requestId
+          #        integration.request.header.X-AppClient-ID: context.authorizer.principalId
+          #        integration.request.header.client-id: context.authorizer.tenant_id
+          #        integration.request.header.X-Forwarded-For: context.identity.sourceIp
+          #      passthroughBehavior: when_no_match
+          #      connectionType: INTERNET
           /ml-gateway/{proxy+}:
             get:
               produces:
@@ -645,7 +648,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: GET
@@ -674,7 +677,7 @@ Resources:
                   schema:
                     $ref: '#/definitions/Empty'
               security:
-              - lambda-go-auth-apigw: []
+              - go-oauth-apigw-authorizer-lambda: []
               x-amazon-apigateway-integration:
                 type: http_proxy
                 httpMethod: POST
@@ -694,9 +697,68 @@ Resources:
                 passthroughBehavior: when_no_match
                 connectionType: VPC_LINK
                 connectionId: !Ref VpcLinkIdglobal
+          /order/{proxy+}:
+            get:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - go-oauth-apigw-authorizer-lambda: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: GET
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${OrderAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
+            post:
+              produces:
+              - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - go-oauth-apigw-authorizer-lambda: []
+              x-amazon-apigateway-integration:
+                type: http_proxy
+                httpMethod: POST
+                uri:
+                  Fn::Sub: https://${VPCEndpointDNS}/pv/{proxy}
+                responses:
+                  default:
+                    statusCode: '200'
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.proxy
+                  integration.request.header.x-apigw-api-id:
+                    Fn::Sub: "'${OrderAPIPrivateId}'"
+                  integration.request.header.X-Request-ID: context.requestId
+                  integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                  integration.request.header.client-id: context.authorizer.tenant_id
+                  integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                passthroughBehavior: when_no_match
+                connectionType: VPC_LINK
+                connectionId: !Ref VpcLinkIdglobal
         x-amazon-apigateway-api-key-source: AUTHORIZER
         securityDefinitions:
-          lambda-go-auth-apigw:
+          go-oauth-apigw-authorizer-lambda:
             type: apiKey
             name: Unused
             in: header
@@ -737,16 +799,16 @@ Resources:
               application/json: '{"error": { "id": "$context.requestId", "description":
                 "Too many requests", "code": "429"}}'
    
- #CanaryDeployment:
- #  Type: AWS::ApiGateway::Deployment
- #   Properties:
- #     RestApiId: !Ref GlobalAPIGateway
- #     StageDescription:
- #       CachingEnabled: false  
- #       CanarySetting:
- #         StageVariables:
- #           canaryFeature: "enabled"  
- #         PercentTraffic: 50  
+    #CanaryDeployment:
+    #  Type: AWS::ApiGateway::Deployment
+    #  Properties:
+    #    RestApiId: !Ref GlobalAPIGateway
+    #    StageDescription:
+    #      CachingEnabled: false  
+    #      CanarySetting:
+    #        StageVariables:
+    #          canaryFeature: "enabled"  
+    #        PercentTraffic: 50  
 
   GlobalAPIBaseMapping:
     Type: AWS::ApiGateway::BasePathMapping
@@ -760,3 +822,10 @@ Resources:
         Ref: GlobalAPIGateway
       Stage:
         Ref: GlobalAPIGateway.Stage
+
+  ApiInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref AuthorizerARN
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com

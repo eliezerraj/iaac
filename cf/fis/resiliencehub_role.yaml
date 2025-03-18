@@ -1,10 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Role AWS Fis.
+Description: Role AWSResilienceHubRoles.
 
 Parameters:
-  RoleName: 
-    Type: String
-    Default: AWSFis-Role
   ManagedPolicyParameterOne:
     Description: Inform policy ARN (opcional)
     Type: String 
@@ -17,19 +14,15 @@ Parameters:
     Description:    Please specify the Owner. Used for tagging  
     Type:           String
     Default:        architecture 
-  platform:
-    Description:    Please specify the Plataform
-    Type:           String
-    Default:        dockone 
 
 Conditions:
   IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
 
 Resources:
-  AWSFisRole:
+  AWSResilienceHubRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Ref RoleName
+      RoleName: !Sub "AWSResilienceHubRole-${AWS::AccountId}"
       Path: /
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -45,11 +38,9 @@ Resources:
           Value:  !Sub '${AWS::StackName}'
         - Key:    owner
           Value:  !Ref owner
-        - Key:    platform
-          Value:  !Ref platform
         - Key:    component
           Value:  !Ref component          
 
 Outputs:
-  AWSFisRole:
-    Value: !GetAtt 'AWSFisRole.Arn'
+  AWSResilienceHubRole:
+    Value: !GetAtt 'AWSResilienceHubRole.Arn'

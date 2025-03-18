@@ -24,7 +24,7 @@ Parameters:
     Default: architecture
 
 Resources:
-  SecGrpRestric:
+  SecGrpPrivate:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: 'security group private subnet'

@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template IAM role with AmazonEC2InstanceManagementCore
+
+Resources:
+  EC2InstanceManagementRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EC2InstanceManagementRole-Eliezer
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: EC2InstanceManagementProfile-Eliezer
+      Roles:
+        - Ref: EC2InstanceManagementRole
+
+Outputs:
+  InstanceManagementRoleArn:
+    Description: 'Role ARN'
+    Value: !GetAtt EC2InstanceManagementRole.Arn

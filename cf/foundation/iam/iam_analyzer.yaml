@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template to create iam external analyzer
+
+Parameters:
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  OwnerName:
+    Type: String
+    Default: architecture
+  Component:
+    Type: String
+    Default: access-report
+
+Resources:
+  IAMAccessAnalyzer:
+    Type: AWS::AccessAnalyzer::Analyzer
+    Properties:
+      AnalyzerName:  !Sub "ExternalIAMAnalyzer-${AWS::AccountId}" 
+      Type: ACCOUNT
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+        - Key:    owner
+          Value:  !Ref OwnerName
+        - Key:    component
+          Value:  !Ref Component    

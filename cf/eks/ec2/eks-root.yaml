@@ -24,14 +24,14 @@ Parameters:
 Mappings:
   eksCluster:
     dev:
-      version: 1.28
+      version: 1.31
       clusterName: 'arch-eks-02'
       templateVersionFargate: 14.0.0
   eksNodeGroup:
     dev:
       eksNodeGroupLaunchTemplateVersion: 11.0.0
       # get last AMI : aws ssm get-parameter --name /aws/service/bottlerocket/aws-k8s-1.28/x86_64/latest/image_id --region us-east-2 --query "Parameter.Value" --output text
-      Ami: ami-0e4a6ad1df7519d3b 
+      Ami: ami-0a192b6f1e96a50d4 
       InstanceType: t3.medium
       NodeGroupMaxNodes: '10'
       NodeGroupMinNodes: '3'

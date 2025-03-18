@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AWS CodeBuild project to deploy a Lambda function"
+
+Resources:
+  # IAM Role for CodeBuild
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CodeBuildLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - codebuild.amazonaws.com
+            Action: 
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: CodeBuildLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                Resource: "arn:aws:s3:::your-source-bucket/*"
+              - Effect: Allow
+                Action:
+                  - "lambda:UpdateFunctionCode"
+                Resource: "arn:aws:lambda:us-east-1:123456789012:function:YourLambdaFunction"
+
+  # CodeBuild Project
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: LambdaDeploymentProject
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: S3
+        Location: "your-source-bucket/source.zip"  # Update with your S3 bucket
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        EnvironmentVariables:
+          - Name: FUNCTION_NAME
+            Value: "YourLambdaFunction"
+      TimeoutInMinutes: 10
+      BuildSpec: |
+        version: 0.2
+        phases:
+          install:
+            runtime-versions:
+              nodejs: 14
+          build:
+            commands:
+              - echo "Zipping Lambda function..."
+              - zip -r function.zip .
+              - echo "Deploying to Lambda..."
+              - aws lambda update-function-code --function-name $FUNCTION_NAME --zip-file fileb://function.zip
+
+Outputs:
+  CodeBuildProjectName:
+    Description: "CodeBuild project name"
+    Value: !Ref CodeBuildProject
