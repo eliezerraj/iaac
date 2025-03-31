@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Template ECR Repo v1
+Description: Template ECR Repo v2.0 - 26/03/2025
 
 Parameters:
   RepositoryName: 
     Type: String
-    Default: go-order
+    Default: go-onboarding
   Env:
     Type: String
     Default: dev
@@ -14,7 +14,7 @@ Parameters:
       - prd
   BusinessUnitName:
     Type: String
-    Default: banking
+    Default: global
   PlatformName:
     Type: String
     Default: dockone
@@ -31,12 +31,6 @@ Parameters:
       - pci
       - pci-connected
       - non-pci
-  PciScope:
-    Type: String
-    Default: false
-    AllowedValues:
-      - true
-      - false
   Owner:
     Type: String
     Default: architecture
@@ -97,8 +91,6 @@ Resources:
           Value: !Ref Owner
         - Key: pci_classification
           Value: !Ref PciClassificationName
-        - Key: pci_scope
-          Value: !Ref PciScope
 
 Outputs:
   EcrRepo:

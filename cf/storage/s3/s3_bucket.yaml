@@ -4,7 +4,7 @@ Description: Template create s3 bucket/policy
 Parameters:
   Versao:
     Type: String
-    Default: 0
+    Default: 1
   Env:
     Type: String
     AllowedValues:
@@ -14,6 +14,7 @@ Parameters:
   S3BucketName:
     Description: Bucket Name
     Type: String
+    Default: 992382474575-eliezer-us-east-1-go-onboarding
     
 Resources:
   S3Bucket:
