@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template create role/policy v1.0 - 02/05/2025
+
+Parameters:
+  CrrSourceRoleName:
+    Type: String
+    Default: s3crr-908671954593-mtls-ca-v04-role
+  S3SourceBucketName:
+    Type: String
+    Default: docktech-908671954593-truststore-mtls-v04
+  S3TargetBucketName:
+    Type: String
+    Default: docktech-992382474575-truststore-mtls-v04
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  PlatformName:
+    Type: String
+    Default: dockone
+  ApplicationName:
+    Type: String
+    Default: app architecture
+  ComponentName:
+    Type: String
+    Default: role
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  Owner:
+    Type: String
+    Default: architecture
+
+Resources:
+  S3CRRSourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref CrrSourceRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sts:AssumeRole     
+      Policies:
+        - PolicyName: S3TrustStoreBucketPolicyV02
+          PolicyDocument:
+            Version: '2012-10-17'           
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObjectVersionForReplication
+                  - s3:GetObjectVersionAcl
+                  - s3:GetObjectVersionTagging
+                  - s3:ListBucket
+                  - s3:GetReplicationConfiguration
+                  - s3:GetObjectRetention
+                  - s3:GetObjectLegalHold
+                Resource:
+                  - !Sub arn:aws:s3:::${S3SourceBucketName}
+                  - !Sub arn:aws:s3:::${S3SourceBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:ReplicateObject
+                  - s3:ReplicateDelete
+                  - s3:ReplicateTags
+                  - s3:ObjectOwnerOverrideToBucketOwner
+                Resource:
+                  - !Sub arn:aws:s3:::${S3TargetBucketName}/*
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref CrrSourceRoleName
+        - Key: resource
+          Value: policy
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName

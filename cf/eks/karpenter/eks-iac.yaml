@@ -1,105 +1,92 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Template to create Cluster EKS nested stack 
+Description: Template to create Cluster and NodeGroup EKS nested stack v3.0 24/04/25
 
 Parameters:
   Versao:
     Type: String
   Env:
-    Type: String  
-  TemplateURL:
     Type: String
-    Default: https://eliezerraj-908671954593-devops.s3.us-east-2.amazonaws.com/cf-templates/eks-iac-cluster-karpenter.yaml
-
+  CreateArgoCDAddRole:
+    Type: String
+    Default: true
+  TemplatetURL:
+    Type: String
+    Default: https://eliezerraj-908671954593-devops-us-east-2.s3.us-east-2.amazonaws.com/cf-templates/eks-iac-cluster-karpenter-template-v3.yaml
 Mappings:
   eksCluster:
     dev:
-      version: 1.29
-      clusterName: 'arch-eks-03'
-      templateVersionFargate: 24.0.0
+      version: 1.31
+      clusterName: 'arch-eks-01-02'
+      templateVersion: 21.0.1
     hml:
-      version: 1.29
-      clusterName: 'arch-eks-03-hml'
-      templateVersionFargate: 24.0.0
-    # prd:
-    #   version: 1.29
-    #   clusterName: 'arch-eks-03-prd'
-    #   templateVersionFargate: 23.0.0
+      version: 1.31
+      clusterName: 'arch-eks-01-02'
+      templateVersion: 20.0.0
+    prd: #prd-non-pci
+      version: 1.31
+      clusterName: 'arch-eks-01-02'
+      templateVersion: 20.0.0
 
   network:
     dev:
-      VpcId: vpc-0f888a156cb86cdff
-      VpcCidr: 10.195.128.0/17
-      SubnetAZA: subnet-0f1faa2b0dd16104a
-      SubnetAZB: subnet-0b5613ac436d2748a
-      SubnetAZC: subnet-04e14ea6e7c6ec1b1
-
-      #VpcId: vpc-0df31a6e2d113d8b7
-      #VpcCidr: 10.214.0.0/16
-      #SubnetAZA: subnet-0ca2d45be9d6ab5bc
-      #SubnetAZB: subnet-0b2b57acbb1da0623
-      #SubnetAZC: subnet-05d3e7f4611c12a23
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
     hml:
       VpcId: vpc-053bf362926211174
       VpcCidr: 10.213.0.0/16
       SubnetAZA: subnet-0fb3b86a8657a696f
       SubnetAZB: subnet-0fb6727ed0041b799
       SubnetAZC: subnet-0c45c1b6d9ba2cfc5
-    # prd:
-    #   VpcId: vpc-0fa3325d4843786ca
-    #   VpcCidr: 10.194.0.0/17
-    #   SubnetAZA: subnet-03ed2227d2b07dfa9
-    #   SubnetAZB: subnet-0b78395bdd4830972
-    #   SubnetAZC: subnet-009e5b0e1e95913de
- 
-  tag:
-      CloudProvider:
-        value: aws
-      Application:
-        value: arch-eks
-      BusinessUnitName:
-        value: global
-      Component:
-        value: architecture-api
-      Owner:
-        value: architecture
-      PCIClassification:
-        value: non-pci
-      PCIScope:
-        value: false
-      Platform:
-        value: dockone
-      Squad:
-        value: architecture
-      Email:
-        value: architecturet@dock.tech
-      Slack:
-        value: architecture
-      Service:
-        value: architecture-api
-    
-Conditions: 
+    prd: #prd-non-pci
+      VpcId: vpc-05583dab4737e64fd
+      VpcCidr: 10.197.128.0/17
+      SubnetAZA: subnet-0a0c6c1b76845ca8a
+      SubnetAZB: subnet-0d2dc2da1fb208470
+      SubnetAZC: subnet-0446d425f47765e5b
+  
+  Tag:
+    Application:
+      value: architecture
+    BusinessUnitName:
+      value: dockone
+    Component:
+      value: arch-eks-iac
+    Owner:
+      value: architecture
+    Platform:
+      value: dockone
+    Squad:
+      value: architecture
+    Service:
+      value: arch
+    PCIClassification:
+      value: non-pci
+    PCIScope:
+      value: false
+
+Conditions:
   isPrd: !Equals [!Ref Env, prd]
 
 Resources:
-
-  eksClusterFargate:
+  eksClusterNONPCI:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-        CloudProvider: !FindInMap [ tag, CloudProvider, value ]
-        Owner: !FindInMap [ tag, Owner, value ]
         Env: !Ref Env
-        BusinessUnitName: !FindInMap [ tag, BusinessUnitName, value ]
-        Component: !FindInMap [ tag, Component, value ]
-        Application: !FindInMap [ tag, Application, value ]
-        PCIClassification: !If [isPrd, pci-connected, non-pci]
-        PCIScope: !If [isPrd, true, false]
-        Platform: !FindInMap [ tag, Platform, value ] 
-        Squad: !FindInMap [ tag, Squad, value ]
-        Slack: !FindInMap [ tag, Slack, value ]
-        Email: !FindInMap [ tag, Email, value ]
-        Service: !FindInMap [ tag, Service, value ]
+        CreateArgoCDAddRole: !Ref CreateArgoCDAddRole
+        Owner: !FindInMap [ Tag, Owner, value ]
+        BusinessUnitName: !FindInMap [ Tag, BusinessUnitName, value ]
+        Component: !FindInMap [ Tag, Component, value ]
+        Application: !FindInMap [ Tag, Application, value ]
+        PCIClassification: !FindInMap [ Tag, PCIClassification, value ]
+        PCIScope: !FindInMap [ Tag, PCIScope, value ]
+        Platform: !FindInMap [ Tag, Platform, value ]
+        Squad: !FindInMap [ Tag, Squad, value ]
         Stack: !Sub ${AWS::StackName}
+        Service: !FindInMap [ Tag, Service, value ]
         ClusterName: !FindInMap [ eksCluster, !Ref Env, clusterName ]
         ClusterVersion: !FindInMap [ eksCluster, !Ref Env, version ]
         VpcId: !FindInMap [ network, !Ref Env, VpcId ]
@@ -110,4 +97,13 @@ Resources:
             - - !FindInMap [ network, !Ref Env, SubnetAZA ]
               - !FindInMap [ network, !Ref Env, SubnetAZB ]
               - !FindInMap [ network, !Ref Env, SubnetAZC ]
-      TemplateURL: !Ref TemplateURL
+      TemplateURL: !Ref TemplatetURL
+      Tags:
+        - Key: platform
+          Value: !FindInMap [Tag, Platform, value]
+        - Key: application
+          Value: !FindInMap [Tag, Application, value]
+        - Key: pci_scope
+          Value: !FindInMap [ Tag, PCIScope, value ]
+        - Key: pci_classification
+          Value: !FindInMap [ Tag, PCIClassification, value ]

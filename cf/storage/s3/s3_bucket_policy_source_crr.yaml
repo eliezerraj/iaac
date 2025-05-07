@@ -24,7 +24,7 @@ Parameters:
 Resources:
   S3TrustStoreBucket:
     Type: 'AWS::S3::Bucket'
-    #DeletionPolicy: Retain
+    DeletionPolicy: Retain
     Properties:
       BucketName: !Ref S3SourceBucketName
       VersioningConfiguration:

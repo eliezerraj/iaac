@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template s3 bucket target policy policy v1.0 - 02/05/2025
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  S3TargetBucketName:
+    Description: Bucket Name
+    Type: String
+    Default: docktech-992382474575-truststore-mtls-v04
+  RoleARNTrustStoreCRR:
+    Description: Arn Role truststore
+    Type: String
+    Default: arn:aws:iam::908671954593:role/s3crr-908671954593-mtls-ca-v04-role
+
+Resources:
+  S3TrustStoreBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3TargetBucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Sid: "Set permissions for objects"
+            Action:
+              - s3:ReplicateObject
+              - s3:ReplicateDelete
+              - s3:GetObject
+            Resource:
+              - !Sub arn:aws:s3:::${S3TargetBucketName}/*
+            Principal:
+              AWS: !Ref RoleARNTrustStoreCRR
+          - Effect: Allow
+            Sid: "Set permissions on bucket"
+            Action:
+              - s3:PutBucketVersioning
+              - s3:GetBucketVersioning
+              - s3:List*
+            Resource:
+              - !Sub arn:aws:s3:::${S3TargetBucketName}
+            Principal:
+              AWS: !Ref RoleARNTrustStoreCRR

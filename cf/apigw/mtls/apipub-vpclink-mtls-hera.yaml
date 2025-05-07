@@ -1,0 +1,967 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+- AWS::LanguageExtensions
+- AWS::Serverless-2016-10-31
+Description: Apigateway Public VPCLink with mTLS Integration v3.2 - 05/05/2025
+
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+    - dev
+    - hml
+    - prd
+  Versao:
+    Type: String
+    Default: 0
+  ConsentsEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-consent-api/.kubernetes/env/ingress.yaml
+  PaymentsEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-payment-api/.kubernetes/env/ingress.yaml
+  ProxyEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-proxy-api/.kubernetes/env/ingress.yaml
+  SetupEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-setup-api/.kubernetes/env/ingress.yaml
+  DataTransferEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-data-transfer-api/.kubernetes/env/ingress.yaml
+  DataTransferConsentsEksDomainName:
+    Type: String
+    Description: EKS Domain name defined in open-finance-data-transfer-consent-api/.kubernetes/env/ingress.yaml
+  VpcId:
+    Type: String
+  DatadogForwarderFunction:
+    Type: String
+    Default: AWS::NoValue
+  PublicApiLogFormat:
+    Type: String
+    Default: '{"api": "$context.authorizer.apiName", "requestId": "$context.requestId",
+      "sourceIP": "$context.identity.sourceIp", "userAgent": "$context.identity.userAgent",
+      "WAFresponse": "$context.wafResponseCode", "httpMethod": "$context.httpMethod",
+      "path": "$context.path", "respTime":$context.integrationLatency, "responseCode":
+      "$context.status", "integRespCode": "$context.integrationStatus", "reqTime":$context.requestTimeEpoch,
+      "resourcePath": "$context.resourcePath", "apiId": "$context.apiId", "appClient":
+      "$context.authorizer.principalId", "issuerName": "$context.authorizer.nome_emissor",
+      "issuerId": "$context.authorizer.id_emissor", "jwtId": "$context.authorizer.jwt_id",
+      "authLatency": "$context.authorizer.latency"}'
+  PrivateApiLogFormat:
+    Type: String
+    Default: '{"requestId": "$context.requestId", "sourceIP": "$context.identity.sourceIp",
+      "userAgent": "$context.identity.userAgent", "WAFresponse": "$context.wafResponseCode",
+      "httpMethod": "$context.httpMethod", "path": "$context.path", "respTime":$context.integrationLatency,
+      "responseCode": "$context.status", "integRespCode": "$context.integrationStatus",
+      "reqTime":$context.requestTimeEpoch, "resourcePath": "$context.resourcePath",
+      "apiId": "$context.apiId"}'
+  OpenFinancePublicApiName:
+    Type: String
+    Default: open-finance-api
+  OpenFinancePrivateApiName:
+    Type: String
+    Default: open-finance-api
+  OpenFinancePublicApiLogGroupName:
+    Type: String
+    Description: Name of API Gateway Log Group
+    Default: /dock/apigateway/open-finance-api
+  OpenFinancePrivateApiLogGroupName:
+    Type: String
+    Description: Name of API Gateway Log Group
+    Default: /dock/apigateway/open-finance-api-private
+  ApiGatewayDomainName:
+    Type: String
+  ApiGatewayMltsDomainName:
+    Type: String
+  DocknitoAuthorizerAccount:
+    Type: String
+  DocknitoAuthorizerRegion:
+    Type: String
+  EdgeCertificateArn:
+    Type: String
+  RegionalCertificateArn:
+    Type: String
+  WafAclArn:
+    Type: String
+    Description: Association WAF in API ApiGateway
+  TruststoreUri:
+    Type: String
+    Description: URI of the bucket where the Truststore is located
+  TruststoreVersion:
+    Type: String
+    Description: Version of the file where the Truststore is located
+  OpenFinanceApiRoleName:
+    Type: String
+    Default: OpenFinanceApiRole
+    Description: Name of the IAM Role
+  OpenFinanceApiPolicyName:
+    Type: String
+    Default: OpenFinanceApiPolicy
+    Description: Name of the IAM Policy
+  Application:
+    Type: String
+    Default: open-finance-api-gateway-iac
+  BusinessUnit:
+    Type: String
+    Default: banking
+  CloudProvider:
+    Type: String
+    Default: aws
+  Infrastructure:
+    Type: String
+    Default: iac
+  Owner:
+    Type: String
+    Default: Core Banking
+  PciScope:
+    Type: String
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: 'false'
+  Project:
+    Type: String
+    Default: open_finance
+  Service:
+    Type: String
+    Default: open-finance-api-gateway-iac
+  Squad:
+    Type: String
+    Default: squad-hera
+  Slack:
+    Type: String
+    Default: banking-olimpo-squad-hera-deploy
+  Email:
+    Type: String
+    Default: squad-hera@dock.tech
+Conditions:
+  enableDatadog:
+    Fn::Or:
+    - Fn::Equals:
+      - Ref: Env
+      - prd
+    - Fn::Equals:
+      - Ref: Env
+      - hml
+Mappings:
+  ApiGateway:
+    Properties:
+      Methods:
+      - get
+      - post
+      - put
+      - patch
+      - delete
+Resources:
+  LogGroupOpenFinancePublicApi:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Ref: OpenFinancePublicApiLogGroupName
+      Tags:
+      - Key: application
+        Value:
+          Ref: Application
+      - Key: business_unit
+        Value:
+          Ref: BusinessUnit
+      - Key: cloud_provider
+        Value:
+          Ref: CloudProvider
+      - Key: email
+        Value:
+          Ref: Email
+      - Key: env
+        Value:
+          Ref: Env
+      - Key: infrastructure
+        Value:
+          Ref: Infrastructure
+      - Key: owner
+        Value:
+          Ref: Owner
+      - Key: pci_scope
+        Value:
+          Ref: PciScope
+      - Key: project
+        Value:
+          Ref: Project
+      - Key: resource
+        Value: log-group
+      - Key: service
+        Value:
+          Ref: Service
+      - Key: slack
+        Value:
+          Ref: Slack
+      - Key: squad
+        Value:
+          Ref: Squad
+      - Key: stack
+        Value:
+          Fn::Sub: ${AWS::StackName}
+  LogGroupOpenFinancePrivateApi:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Ref: OpenFinancePrivateApiLogGroupName
+      Tags:
+      - Key: application
+        Value:
+          Ref: Application
+      - Key: business_unit
+        Value:
+          Ref: BusinessUnit
+      - Key: cloud_provider
+        Value:
+          Ref: CloudProvider
+      - Key: email
+        Value:
+          Ref: Email
+      - Key: env
+        Value:
+          Ref: Env
+      - Key: infrastructure
+        Value:
+          Ref: Infrastructure
+      - Key: owner
+        Value:
+          Ref: Owner
+      - Key: pci_scope
+        Value:
+          Ref: PciScope
+      - Key: project
+        Value:
+          Ref: Project
+      - Key: resource
+        Value: log-group
+      - Key: service
+        Value:
+          Ref: Service
+      - Key: slack
+        Value:
+          Ref: Slack
+      - Key: squad
+        Value:
+          Ref: Squad
+      - Key: stack
+        Value:
+          Fn::Sub: ${AWS::StackName}
+  WafAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}::/restapis/${OpenFinancePublicApiGateway}/stages/${OpenFinancePublicApiGateway.Stage}
+      WebACLArn:
+        Ref: WafAclArn
+  RoleOpenFinanceApi:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Ref: OpenFinanceApiRoleName
+      Path: /
+      Policies:
+      - PolicyName:
+          Ref: OpenFinanceApiPolicyName
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            Action:
+            - s3:GetObject
+            Effect: Allow
+            Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Tags:
+      - Key: env
+        Value:
+          Ref: Env
+      - Key: service
+        Value:
+          Ref: Service
+      - Key: stack
+        Value:
+          Fn::Sub: ${AWS::StackName}
+      - Key: squad
+        Value:
+          Ref: Squad
+      - Key: slack
+        Value:
+          Ref: Slack
+      - Key: email
+        Value:
+          Ref: Email
+      - Key: resource
+        Value: iam-role
+  OpenFinancePublicApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - LogGroupOpenFinancePublicApi
+          - Arn
+        Format:
+          Ref: PublicApiLogFormat
+      AlwaysDeploy: true
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: open-finance-api
+        tags:
+        - name: open-finance-api
+          description: Open Finance Api
+        schemes:
+        - https
+        paths:
+          /v1/consents/{proxy+}:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${ConsentsEksDomainName}/v1/consents/{proxy}
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.path.proxy: method.request.path.proxy
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/payments/{proxy+}:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${PaymentsEksDomainName}/v1/payments/{proxy}
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.path.proxy: method.request.path.proxy
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/payments:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${PaymentsEksDomainName}/v1/payments
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/data-transfer-consents/{proxy+}:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${DataTransferConsentsEksDomainName}/v1/data-transfer-consents/{proxy}
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/data-transfer/{proxy+}:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${DataTransferEksDomainName}/v1/data-transfer/{proxy}
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/authentication/result:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${ProxyEksDomainName}/v1/authentication/result
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                    integration.request.header.X-Issuer-ID: context.authorizer.id_emissor
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /v1/management/result:
+            Fn::ForEach::InnerForMethod:
+            - Method
+            - Fn::FindInMap:
+              - ApiGateway
+              - Properties
+              - Methods
+            - ${Method}:
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: https://${ProxyEksDomainName}/v1/management/result
+                  passthroughBehavior: when_no_match
+                  requestParameters:
+                    integration.request.header.requestId: context.requestId
+                    integration.request.header.X-Forwarded-For: context.identity.sourceIp
+                    integration.request.header.X-AppClient-ID: context.authorizer.principalId
+                    integration.request.header.X-Client-ID: context.authorizer.tenant_id
+                    integration.request.header.X-Issuer-ID: context.authorizer.id_emissor
+                  httpMethod:
+                    Ref: Method
+                  type: http_proxy
+                  connectionType: VPC_LINK
+                  connectionId:
+                    Fn::ImportValue: OpenFinanceVpcLinkId
+                security:
+                - docknito: []
+          /.well-known/jwks.json:
+            get:
+              produces:
+              - application/json
+              parameters:
+              - name: file
+                in: path
+                required: true
+                type: string
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+              x-amazon-apigateway-integration:
+                requestParameters:
+                  integration.request.path.proxy: method.request.path.file
+                responses:
+                  default:
+                    statusCode: '200'
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                uri:
+                  Fn::Join:
+                  - /
+                  - - Fn::Sub: arn:aws:apigateway:${AWS::Region}:s3:path
+                    - Fn::ImportValue: S3JwksBucketName
+                    - jwks.json
+                credentials:
+                  Fn::GetAtt:
+                  - RoleOpenFinanceApi
+                  - Arn
+                passthroughBehavior: when_no_match
+                httpMethod: GET
+                type: aws
+        x-amazon-apigateway-api-key-source: AUTHORIZER
+        securityDefinitions:
+          docknito:
+            type: apiKey
+            name: Unused
+            in: header
+            x-amazon-apigateway-authtype: custom
+            x-amazon-apigateway-authorizer:
+              authorizerUri:
+                Fn::Sub: arn:aws:apigateway:${DocknitoAuthorizerRegion}:lambda:path/2015-03-31/functions/arn:aws:lambda:${DocknitoAuthorizerRegion}:${DocknitoAuthorizerAccount}:function:docknito-authorization:stable/invocations
+              authorizerResultTtlInSeconds: 600
+              identitySource: method.request.header.Authorization, context.path, context.httpMethod,  context.identity.sourceIp
+              type: request
+        definitions:
+          Empty:
+            type: object
+            title: Empty Schema
+        x-amazon-apigateway-gateway-responses:
+          UNAUTHORIZED:
+            statusCode: 401
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Unauthorized", "code": "401"}}'
+          ACCESS_DENIED:
+            statusCode: 403
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": "403"}}'
+          DEFAULT_4XX:
+            statusCode: 404
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Resource not found", "code": "404"}}'
+          DEFAULT_5XX:
+            statusCode: 500
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Internal Server Error", "code": "500"}}'
+          WAF_FILTERED:
+            statusCode: 403
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": "403"}}'
+          THROTTLED:
+            statusCode: 429
+            responseTemplates:
+              application/json: '{"error": { "id": "$context.requestId", "description":
+                "Too many requests", "code": "429"}}'
+      Description: API publica do Open Finance
+      DisableExecuteApiEndpoint: true
+      EndpointConfiguration:
+        Type: EDGE
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        MetricsEnabled: true
+        DataTraceEnabled: false
+        LoggingLevel: INFO
+      StageName: Live
+      Tags:
+        application:
+          Ref: Application
+        business_unit:
+          Ref: BusinessUnit
+        cloud_provider:
+          Ref: CloudProvider
+        email:
+          Ref: Email
+        env:
+          Ref: Env
+        infrastructure:
+          Ref: Infrastructure
+        owner:
+          Ref: Owner
+        pci_scope:
+          Ref: PciScope
+        project:
+          Ref: Project
+        resource: api-gateway
+        service:
+          Ref: Service
+        slack:
+          Ref: Slack
+        squad:
+          Ref: Squad
+        stack:
+          Fn::Sub: ${AWS::StackName}
+      TracingEnabled: false
+      Variables:
+        apiName:
+          Ref: OpenFinancePublicApiName
+  OpenFinancePrivateApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      AccessLogSetting:
+        DestinationArn:
+          Fn::GetAtt:
+          - LogGroupOpenFinancePrivateApi
+          - Arn
+        Format:
+          Ref: PrivateApiLogFormat
+      AlwaysDeploy: true
+      EndpointConfiguration:
+        Type: PRIVATE
+      DefinitionBody:
+        openapi: '3.0'
+        info:
+          title:
+            Ref: OpenFinancePrivateApiName
+        schemes:
+        - https
+        tags:
+        - name:
+            Ref: OpenFinancePrivateApiName
+          description: Open Finance Private API
+        paths:
+          /setup/v1/{proxy+}:
+            x-amazon-apigateway-any-method:
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: https://${SetupEksDomainName}/setup/v1/{proxy}
+                passthroughBehavior: when_no_match
+                requestParameters:
+                  integration.request.header.requestId: context.requestId
+                  integration.request.path.proxy: method.request.path.proxy
+                httpMethod: ANY
+                type: http_proxy
+                connectionType: VPC_LINK
+                connectionId:
+                  Fn::ImportValue: OpenFinanceVpcLinkId
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_4XX:
+            statusCode: '400'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'BadRequest'"
+              gatewayresponse.header.x-dock-ErrorCode: 400
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Bad Request", "code": 400 } }'
+          DEFAULT_5XX:
+            statusCode: '500'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'InternalServerError'"
+              gatewayresponse.header.x-dock-ErrorCode: 500
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Internal Server Error", "code": 500 } }'
+          ACCESS_DENIED:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          API_CONFIGURATION_ERROR:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          AUTHORIZER_FAILURE:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          AUTHORIZER_CONFIGURATION_ERROR:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          BAD_REQUEST_PARAMETERS:
+            statusCode: '400'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'BadRequest'"
+              gatewayresponse.header.x-dock-ErrorCode: 400
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Bad Request", "code": 400 } }'
+          BAD_REQUEST_BODY:
+            statusCode: '400'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'BadRequest'"
+              gatewayresponse.header.x-dock-ErrorCode: 400
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Bad Request", "code": 400 } }'
+          EXPIRED_TOKEN:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          INTEGRATION_FAILURE:
+            statusCode: '503'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'ServiceUnavailable'"
+              gatewayresponse.header.x-dock-ErrorCode: 503
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Service Unavailable", "code": 503 } }'
+          INTEGRATION_TIMEOUT:
+            statusCode: '504'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'GatewayTimeout'"
+              gatewayresponse.header.x-dock-ErrorCode: 504
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Gateway Timeout", "code": 504 } }'
+          INVALID_API_KEY:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          INVALID_SIGNATURE:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          MISSING_AUTHENTICATION_TOKEN:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+          QUOTA_EXCEEDED:
+            statusCode: '429'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'QuotaExceeded'"
+              gatewayresponse.header.x-dock-ErrorCode: 429
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Quota Exceeded", "code": 429 } }'
+          RESOURCE_NOT_FOUND:
+            statusCode: '404'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'NotFound'"
+              gatewayresponse.header.x-dock-ErrorCode: 404
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Not Found", "code": 404 } }'
+          REQUEST_TOO_LARGE:
+            statusCode: '413'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'EntityTooLarge'"
+              gatewayresponse.header.x-dock-ErrorCode: 413
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Entity Too Large", "code": 413 } }'
+          THROTTLED:
+            statusCode: '429'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'TooManyRequests'"
+              gatewayresponse.header.x-dock-ErrorCode: 429
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Too Many Requests", "code": 429 } }'
+          UNAUTHORIZED:
+            statusCode: '401'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Unauthorized'"
+              gatewayresponse.header.x-dock-ErrorCode: 401
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Unauthorized", "code": 401 } }'
+          UNSUPPORTED_MEDIA_TYPE:
+            statusCode: '500'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'InternalServerError'"
+              gatewayresponse.header.x-dock-ErrorCode: 500
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Internal Server Error", "code": 500 } }'
+          WAF_FILTERED:
+            statusCode: '403'
+            responseParameters:
+              gatewayresponse.header.x-dock-RequestId: context.requestId
+              gatewayresponse.header.x-dock-ErrorType: "'Forbidden'"
+              gatewayresponse.header.x-dock-ErrorCode: 403
+              gatewayresponse.header.x-Error: context.error.messageString
+            responseTemplates:
+              application/json: '{ "error": { "id": "$context.requestId", "description":
+                "Forbidden", "code": 403 } }'
+        x-amazon-apigateway-policy:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource:
+              Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+            Condition:
+              StringNotEquals:
+                aws:sourceVpc:
+                  Ref: VpcId
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource:
+              Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+            Condition:
+              StringEquals:
+                aws:sourceVpc:
+                  Ref: VpcId
+      Description: Private Open Finance API
+      MethodSettings:
+      - ResourcePath: /*
+        HttpMethod: '*'
+        DataTraceEnabled: 'false'
+        MetricsEnabled: 'true'
+        LoggingLevel: INFO
+      StageName: Live
+      Tags:
+        application:
+          Ref: Application
+        business_unit:
+          Ref: BusinessUnit
+        cloud_provider:
+          Ref: CloudProvider
+        email:
+          Ref: Email
+        env:
+          Ref: Env
+        infrastructure:
+          Ref: Infrastructure
+        owner:
+          Ref: Owner
+        pci_scope:
+          Ref: PciScope
+        project:
+          Ref: Project
+        resource: api-gateway
+        service:
+          Ref: Service
+        slack:
+          Ref: Slack
+        squad:
+          Ref: Squad
+        stack:
+          Fn::Sub: ${AWS::StackName}
+      TracingEnabled: true
+      Variables:
+        apiName:
+          Ref: OpenFinancePrivateApiName
+  ApiMtlsCustomDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName:
+        Ref: ApiGatewayMltsDomainName
+      EndpointConfiguration:
+        Types:
+        - REGIONAL
+      SecurityPolicy: TLS_1_2
+      RegionalCertificateArn:
+        Ref: RegionalCertificateArn
+      MutualTlsAuthentication:
+        TruststoreUri:
+          Ref: TruststoreUri
+        TruststoreVersion:
+          Ref: TruststoreVersion
+  OpenFinanceApiMtlsBaseMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName:
+        Ref: ApiGatewayMltsDomainName
+      RestApiId:
+        Ref: OpenFinancePublicApiGateway
+      Stage:
+        Ref: OpenFinancePublicApiGateway.Stage

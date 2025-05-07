@@ -1,0 +1,106 @@
+# Loadbalancer Controller
+lbController:
+  fargate: "false"
+  karpenter: "true"
+  env: "dev"
+  clusterName: 'arch-eks-01-02'
+  replicaCount: 1
+  image:
+    repository: 602401143452.dkr.ecr.us-east-2.amazonaws.com/amazon/aws-load-balancer-controller
+  vpcId: vpc-0df31a6e2d113d8b7
+  region: us-east-2
+  serviceAccount:
+    create: true
+    name: loadbalancer-controller
+    annotations: {
+      eks.amazonaws.com/role-arn: arn:aws:iam::908671954593:role/eks-loadbalancer-controller-abacus-eks-dev
+    } 
+
+#External DNS
+externalDns:
+  fargate: "false"
+  karpenter: "true"
+  clusterName: 'arch-eks-01-02'
+  domains: [global.abacus.dev.caradhras.io]
+  hostedzoneId: Z0648072335AKSCRDTTQV
+  serviceAccount:
+    annotations: {
+      eks.amazonaws.com/role-arn: arn:aws:iam::908671954593:role/eks-external-dns-abacus-eks-dev
+    }
+
+#External Secret
+externalSecret:
+  fargate: "false"
+  karpenter: "true"
+  region: us-east-2
+  serviceAccount:
+    create: true
+    name: external-secret
+    annotations: {
+      eks.amazonaws.com/role-arn: arn:aws:iam::908671954593:role/eks-external-secret-abacus-eks-dev
+    }
+
+#EFS-CSI-Driver
+efscsiDriver:
+  karpenter:
+    enabled: true
+  storageClasses:
+  - name: efs-sc
+    reclaimPolicy: Retain
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: "true" 
+
+#FluentBit - CW Logs
+fluentBit:
+  clusterName: arch-eks-01-02
+  logsRegion: us-east-2
+  logRetentionDays: 14
+  rbac:
+    serviceAccountAnnotations: {
+      eks.amazonaws.com/role-arn: arn:aws:iam::908671954593:role/eks-fluentbit-cloudwatch-abacus-eks-dev
+    }
+
+# RBAC-Control: setting access to EKS Cluster.
+rbacControl:
+  permissions:
+    accountId: "908671954593"
+    sre_role: "AWSReservedSSO_SRE_361db85bb84286ae"
+    engineering_role: "AWSReservedSSO_PowerUser_bd7048af5e1ae6df"
+    cloud_role: "AWSReservedSSO_Cloud-Aws_27bee7eed9a8e95a"
+    deploy_role: "RundeckAccess"
+    karpenter_role: KarpenterNodeRole-abacus-eks-dev
+
+logRouter:
+  clusterName: arch-eks-01-02
+  logsRegion: us-east-2
+  logRetentionDays: 14
+
+karpenter:
+  serviceAccount:
+    annotations: {
+      eks.amazonaws.com/role-arn: arn:aws:iam::908671954593:role/eks-karpenter-controller-abacus-eks-dev
+    }
+  settings:
+    clusterName: "arch-eks-01-02"
+  nodeClass:
+    type: al2 # "al2" or "bottlerocket"   
+    additionalTags:
+      squad: "architect"
+      product: "abacus"
+      app: arch-eks-01-02
+      environment: dev
+
+metricServer:
+  fargate: "false"
+  karpenter: "true"
+
+# Kubernetes Nginx Ingress
+nginxIngress:
+  fargate: "false"
+  karpenter: "true"
+  env: "dev"
+  controller:
+    serviceNLB:
+      SSLCertificate: "arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782"
+      Attributes: "deletion_protection.enabled=false"
+      clusterName: 'arch-eks-01-02'

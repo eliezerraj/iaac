@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template create s3 policy v1.0 - 02/05/2025
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  BucketName:
+    Type: String
+    Default: docktech-992382474575-truststore-mtls-v02
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Fn::Sub: |
+              {
+                "Version":"2012-10-17",
+                "Statement":[
+                    {
+                      "Sid":"Set permissions for objects",
+                      "Effect":"Allow",
+                      "Principal":{
+                          "AWS":[
+                            "arn:aws:iam::908671954593:role/s3crr_role_for_dock-mtls-ca",
+                            "arn:aws:iam::908671954593:role/ReplicateRootCABucketRole"
+                          ]
+                      },
+                      "Action":[
+                          "s3:ReplicateObject",
+                          "s3:ReplicateDelete",
+                          "s3:GetObject"
+                      ],
+                      "Resource":"arn:aws:s3:::docktech-992382474575-truststore-mtls-v02/*"
+                    },
+                    {
+                      "Sid":"Set permissions on bucket",
+                      "Effect":"Allow",
+                      "Principal":{
+                          "AWS":[
+                            "arn:aws:iam::908671954593:role/s3crr_role_for_dock-mtls-ca",
+                            "arn:aws:iam::908671954593:role/ReplicateRootCABucketRole"
+                          ]
+                      },
+                      "Action":[
+                          "s3:PutBucketVersioning",
+                          "s3:GetBucketVersioning",
+                          "s3:List*"
+                      ],
+                      "Resource":"arn:aws:s3:::docktech-992382474575-truststore-mtls-v02"
+                    }
+                ]
+              }

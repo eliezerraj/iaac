@@ -28,12 +28,6 @@ Parameters:
       - pci
       - pci-connected
       - non-pci
-  PciScope:
-    Type: String
-    Default: false
-    AllowedValues:
-      - true
-      - false
   Owner:
     Type: String
     Default: architecture
@@ -104,9 +98,9 @@ Mappings:
       SubnetAZB: subnet-00c7176f1c6f72c32
       SubnetAZC: subnet-0961dd9a7d368e1b0
     hml:
-      SubnetAZA: subnet-0fb3b86a8657a696f
-      SubnetAZB: subnet-0fb6727ed0041b799
-      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
     prd:
       SubnetAZA: subnet-0a0c6c1b76845ca8a
       SubnetAZB: subnet-0d2dc2da1fb208470
@@ -150,8 +144,6 @@ Resources:
           Value: !Ref Owner
         - Key: pci_classification
           Value: !Ref PciClassificationName
-        - Key: pci_scope
-          Value: !Ref PciScope
 
   RDSDBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
@@ -181,8 +173,6 @@ Resources:
           Value: !Ref Owner
         - Key: pci_classification
           Value: !Ref PciClassificationName
-        - Key: pci_scope
-          Value: !Ref PciScope
 
   RDSPostgre:
     Type: 'AWS::RDS::DBInstance'
@@ -233,8 +223,6 @@ Resources:
           Value: !Ref Owner
         - Key: pci_classification
           Value: !Ref PciClassificationName
-        - Key: pci_scope
-          Value: !Ref PciScope
 
   EnhancedMonitoringRole:
     Condition: HasEnhancedMonitoring
@@ -252,9 +240,9 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
       Path: "/"
 
-Outputs:
-  RDSPostgre:
-    Description: The RDS instance identifier
-    Value: !Ref RDSPostgre
-    Export:
-      Name: RDSPostgre
+#Outputs:
+#  RDSPostgre:
+#    Description: The RDS instance identifier
+#    Value: !Ref RDSPostgre
+#    Export:
+#      Name: RDSPostgre

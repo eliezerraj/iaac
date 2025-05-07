@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Template para criacao do cluster EKS
+Description: Template cluster EKS v3.0 24/04/25
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -29,7 +29,6 @@ Metadata:
         Parameters:
           - Application
           - BusinessUnitName
-          - CloudProvider
           - Component
           - Env
           - Owner
@@ -37,8 +36,6 @@ Metadata:
           - PCIScope
           - Platform
           - Squad
-          - Email
-          - Slack
           - Service
           - Stack
 
@@ -47,8 +44,6 @@ Metadata:
         default: 'Application: '
       BusinessUnitName:
         default: 'BusinessUnitName: '
-      CloudProvider:
-        default: 'CloudProvider: '
       Component:
         default: 'Component: '
       Env:
@@ -63,10 +58,6 @@ Metadata:
         default: 'Platform: '
       Squad:
         default: 'Squad: '
-      Email:
-        default: 'Email: '
-      Slack:
-        default: 'Slack: '
       Service:
         default: 'Service: '
       Stack:
@@ -101,14 +92,6 @@ Parameters:
   BusinessUnitName:
     Description:    Please specify the Business Unit Name. Used for tagging  
     Type:           String
-  CloudProvider:
-    Description:    Please specify the Cloud Provider. Used for tagging
-    Type:           String
-    Default: aws
-    AllowedValues:
-      - aws
-      - azure
-      - gcp
   Component:
     Description:    Please specify the Component. Used for tagging
     Type:           String
@@ -144,12 +127,6 @@ Parameters:
   Squad:
     Description:    Please specify the Squad. Used for tagging
     Type:           String 
-  Email:
-    Description:    Please specify the Email. Used for tagging
-    Type:           String 
-  Slack:
-    Description:    Please specify the Slack. Used for tagging
-    Type:           String 
   Service:
     Description:    Please specify the Service. Used for tagging
     Type:           String 
@@ -163,13 +140,16 @@ Parameters:
   ClusterVersion:
     Description:    Please specify EKS Cluster Version
     Type:           String
-    Default:        '1.29'
+    Default:        '1.32'
     AllowedValues:
       - '1.25'
       - '1.26'
       - '1.27'
       - '1.28'
       - '1.29'
+      - '1.30'
+      - '1.31'
+      - '1.32'
   CidrIp:
     Description:    Please specify CIDR Block of VPC  
     Type:           String
@@ -203,6 +183,55 @@ Parameters:
     Description:    Please specify Opcional description for CIDR Block  
     Type:           String
     Default:        ""
+  CreateKarpenterRoleForSpot:
+    Description: Set to 'true' to create the service-linked role AWSServiceRoleForEC2Spot, 'false' to skip it
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+  VPCCNIAddonVersion:
+    Type: String
+    Default: v1.19.2-eksbuild.5
+    Description: "Version of the VPC CNI add-on to install"
+  KubeProxyAddonVersion:
+    Type: String
+    Default: v1.31.3-eksbuild.2
+    Description: "Version of the Kube Proxy add-on to install"
+  CoreDNSAddonVersion:
+    Type: String
+    Default: v1.11.4-eksbuild.2
+    Description: "Version of the CoreDNS add-on to install"
+  CoreDNSReplicas:
+    Type: Number
+    Default: 1
+    Description: "CoreDNS number of pods"
+  CreateArgoCDRole:
+    Description: Create ArgoCD IRSA role
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+  CreateArgoCDAddRole:
+    Description: Create ArgoCD client role
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+  ArgoCDServerAssumeRoleListDev:
+    Description: ArgoCD Server roles to assume
+    Type: CommaDelimitedList
+    Default: ""
+  ArgoCDServerAssumeRoleListHml:
+    Type: CommaDelimitedList
+    Description: ArgoCD Server roles to assume
+    Default: ""
+  ArgoCDServerAssumeRoleListPrd:
+    Type: CommaDelimitedList
+    Description: ArgoCD Server roles to assume
+    Default: ""
 
 Mappings:
   Cluster:
@@ -227,8 +256,81 @@ Conditions:
   notDescriptionCidrIpOp1: !Not [!Equals [!Ref DescriptionCidrIpOp1, ""]]
   notDescriptionCidrIpOp2: !Not [!Equals [!Ref DescriptionCidrIpOp2, ""]]
   notDescriptionCidrIpOp3: !Not [!Equals [!Ref DescriptionCidrIpOp3, ""]]
+  shouldCreateKarpenterRoleForSpot: !Equals [ !Ref CreateKarpenterRoleForSpot, "true" ]
+  CreateArgoCDRole: !Equals [!Ref CreateArgoCDRole, true]
+  CreateArgoCDAddRole: !Equals [!Ref CreateArgoCDAddRole, true]
+  IsDev: !Equals [!Ref Env, "dev"]
+  IsHml: !Equals [!Ref Env, "hml"]
+  IsProd: !Equals [!Ref Env, "prd"]
 
 Resources:
+  ArgoCDAddRole:
+    Type: AWS::IAM::Role
+    Condition: CreateArgoCDAddRole
+    Properties:
+      RoleName: !Sub eks-argocd-add-role-${Cluster}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: 
+                Fn::If:
+                  - IsDev
+                  - arn:aws:iam::117506926588:role/eks-argocd-sre-platform-eks-dev
+                  - Fn::If:
+                      - IsHml
+                      - arn:aws:iam::637423436578:role/eks-argocd-sre-platform-eks-hml
+                      - arn:aws:iam::505287637780:role/eks-argocd-sre-platform-eks-prd
+            Action: "sts:AssumeRole"
+      
+  ArgoCDRole:
+    Type: AWS::IAM::Role
+    Condition: CreateArgoCDRole
+    Properties:
+      RoleName: !Sub eks-argocd-${Cluster}
+      AssumeRolePolicyDocument: !Sub 
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com/id/${eksId}"                   
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringLike": {
+                    "${eksEndpoint}:sub": "system:serviceaccount:argocd:*",
+                    "${eksEndpoint}:aud": "sts.amazonaws.com"
+                  }
+                }
+              }
+            ]
+          }
+        - eksId:
+            !Select [ 4, !Split ["/", !GetAtt Cluster.OpenIdConnectIssuerUrl ]]
+          eksEndpoint:
+            !Select [ 1, !Split [ "//", !GetAtt Cluster.OpenIdConnectIssuerUrl ]]
+      Policies:
+        - PolicyName: !Sub eks-argocd-policy-${Cluster}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: "AssumeRole"
+                Effect: "Allow"
+                Action: "sts:AssumeRole"
+                Resource: 
+                  Fn::If:
+                    - IsDev
+                    - !Ref ArgoCDServerAssumeRoleListDev
+                    - 
+                      Fn::If:
+                        - IsHml
+                        - !Ref ArgoCDServerAssumeRoleListHml
+                        - !Ref ArgoCDServerAssumeRoleListPrd
+  
   ClusterRole:
     Type: AWS::IAM::Role
     Properties:
@@ -294,8 +396,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -310,10 +410,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -381,7 +477,8 @@ Resources:
                             "elasticloadbalancing:DescribeTargetHealth",
                             "elasticloadbalancing:DescribeTags",
                             "elasticloadbalancing:AddTags",
-                            "elasticloadbalancing:SetSecurityGroups"
+                            "elasticloadbalancing:SetSecurityGroups",
+                            "elasticloadbalancing:DescribeListenerAttributes"
                         ],
                         "Resource": "*"
                     },
@@ -565,8 +662,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -581,16 +676,67 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
           Value:  !Sub '${Stack}'
         - Key:    resource
           Value:  Role
+  
+  VPCCNIRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'eks-vpc-cni-${Cluster}'
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com/id/${eksId}"                   
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "${eksEndpoint}:sub": "system:serviceaccount:kube-system:aws-node"
+                  }
+                }
+              }
+            ]
+          }
+        - eksId:
+            !Select [ 4, !Split ["/", !GetAtt Cluster.OpenIdConnectIssuerUrl ]]
+          eksEndpoint:
+            !Select [ 1, !Split [ "//", !GetAtt Cluster.OpenIdConnectIssuerUrl ]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+      Tags:
+        - Key: application
+          Value: !Sub '${Application}'
+        - Key: business_unit
+          Value: !Sub '${BusinessUnitName}'
+        - Key: component
+          Value: !Sub '${Component}'
+        - Key: env
+          Value: !Sub '${Env}'
+        - Key: owner
+          Value: !Sub '${Owner}'
+        - Key: pci_classification
+          Value: !Sub '${PCIClassification}'
+        - Key: pci_scope
+          Value: !Sub '${PCIScope}'
+        - Key: platform
+          Value: !Sub '${Platform}'
+        - Key: squad
+          Value: !Sub '${Squad}'
+        - Key: service
+          Value: !Sub '${Service}'
+        - Key: stack
+          Value: !Sub '${Stack}'
+        - Key: resource
+          Value: Role
 
   ClusterExternalDns:
     Type: AWS::IAM::Role
@@ -651,8 +797,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -667,10 +811,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -743,8 +883,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -759,10 +897,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -822,8 +956,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -838,10 +970,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -896,8 +1024,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -912,16 +1038,78 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
           Value:  !Sub '${Stack}'
         - Key:    resource
           Value:  Role
+
+  ClusterEbsCsiDriver:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "eks-ebs-csi-driver-${Cluster}"
+      AssumeRolePolicyDocument: !Sub 
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com/id/${eksId}"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "${eksEndpoint}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+                  }
+                }
+              }
+            ]
+          }
+        - eksId:
+            !Select [ 4, !Split ["/", !GetAtt Cluster.OpenIdConnectIssuerUrl]]
+          eksEndpoint:
+            !Select [ 1, !Split [ "//", !GetAtt Cluster.OpenIdConnectIssuerUrl]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+      Policies:
+        - PolicyName: !Sub eks-ebs-csi-driver-kms-${Cluster}   
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - 'kms:Decrypt'
+                  - 'kms:GenerateDataKeyWithoutPlaintext'
+                  - 'kms:CreateGrant'        
+                Resource: '*'
+      Tags:
+        - Key: application
+          Value: !Sub '${Application}'
+        - Key: business_unit
+          Value: !Sub '${BusinessUnitName}'
+        - Key: component
+          Value: !Sub '${Component}'
+        - Key: env
+          Value: !Sub '${Env}'
+        - Key: owner
+          Value: !Sub '${Owner}'
+        - Key: pci_classification
+          Value: !Sub '${PCIClassification}'
+        - Key: pci_scope
+          Value: !Sub '${PCIScope}'
+        - Key: platform
+          Value: !Sub '${Platform}'
+        - Key: squad
+          Value: !Sub '${Squad}'
+        - Key: service
+          Value: !Sub '${Service}'
+        - Key: stack
+          Value: !Sub '${Stack}'
+        - Key: resource
+          Value: Role
 
   ClusterKarpenterController:
     Type: AWS::IAM::Role
@@ -1063,7 +1251,18 @@ Resources:
                           "Effect": "Allow",
                           "Resource": "*",
                           "Action": "iam:GetInstanceProfile"
-                      }
+                      },
+                      {
+                        "Sid": "AllowKarpenterInterruptQueue",
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:DeleteMessage",
+                          "sqs:GetQueueAttributes",
+                          "sqs:GetQueueUrl",
+                          "sqs:ReceiveMessage"
+                        ],
+                        "Resource": "${KarpenterInterruptionQueue.Arn}"
+                    }
                   ],
                   "Version": "2012-10-17"
               }
@@ -1074,8 +1273,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1090,10 +1287,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -1126,7 +1319,7 @@ Resources:
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole"
-  
+ 
   KarpenterControllerPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -1497,9 +1690,7 @@ Resources:
         - Key:    application 
           Value:  !Sub '${Application}'
         - Key:    business_unit
-          Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'            
+          Value:  !Sub '${BusinessUnitName}'           
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1514,16 +1705,48 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
           Value:  !Sub '${Stack}'
         - Key:    resource
           Value:  EKS
+
+  VPCCNIAddon:
+    Type: 'AWS::EKS::Addon'
+    Properties:
+      AddonName: vpc-cni
+      AddonVersion: !Ref VPCCNIAddonVersion
+      ClusterName: !Ref Cluster
+      ResolveConflicts: OVERWRITE
+      PreserveOnDelete: true
+      ServiceAccountRoleArn: !GetAtt VPCCNIRole.Arn
+      ConfigurationValues: !Sub |
+        {
+          "enableNetworkPolicy": "true"
+        }
+
+  KubeProxyAddon:
+    Type: 'AWS::EKS::Addon'
+    Properties:
+      AddonName: kube-proxy
+      AddonVersion: !Ref KubeProxyAddonVersion
+      ClusterName: !Ref Cluster
+      ResolveConflicts: OVERWRITE
+      PreserveOnDelete: true
+
+  CoreDNSAddon:
+    Type: 'AWS::EKS::Addon'
+    Properties:
+      AddonName: coredns
+      AddonVersion: !Ref CoreDNSAddonVersion
+      ClusterName: !Ref Cluster
+      ResolveConflicts: OVERWRITE
+      PreserveOnDelete: true
+      ConfigurationValues: !Sub |
+        {
+          "replicaCount": ${CoreDNSReplicas}
+        }
 
   IngressRule:
     Type: AWS::EC2::SecurityGroupIngress
@@ -1583,8 +1806,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1599,10 +1820,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -1610,35 +1827,28 @@ Resources:
         - Key:    resource
           Value:  Role
 
-  EKSFargateProfile:
+  FargateProfile:
     Type: AWS::EKS::FargateProfile
     Properties: 
       ClusterName: !Ref Cluster
       PodExecutionRoleArn: !GetAtt FargatePodExecutionRole.Arn
-      FargateProfileName: EKSFargateProfile
+      FargateProfileName: FargateProfile
       Selectors: 
-        - Namespace: "*" 
-          Labels:
-              - Key: fargate
-                Value: "true"
+        - Namespace: "karpenter"
         - Namespace: "kube-system" 
           Labels:
-              - Key: eks.amazonaws.com/component
-                Value: "coredns"
-        - Namespace: "kube-system"
+            - Key: eks.amazonaws.com/component
+              Value: "coredns"
+        - Namespace: "kube-system" 
           Labels:
-              - Key: fargate
-                Value: "true"
-        - Namespace: "ingress-nginx"
-        - Namespace: "karpenter"
+            - Key: component
+              Value: "rbac-control"
       Subnets: !Ref SubnetIds
       Tags: 
         - Key:    application 
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1653,51 +1863,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
-        - Key:    service
-          Value:  !Sub '${Service}'
-        - Key:    stack
-          Value:  !Sub '${Stack}'
-        - Key:    resource
-          Value:  FargateProfile
-
-  EKSFargateProfileRancher:
-    DependsOn: EKSFargateProfile
-    Type: AWS::EKS::FargateProfile
-    Properties: 
-      ClusterName: !Ref Cluster
-      PodExecutionRoleArn: !GetAtt RancherFargatePodExecutionRole.Arn
-      Selectors: 
-        - Namespace: "cattle-*" 
-      Subnets: !Ref SubnetIds
-      Tags: 
-        - Key:    application 
-          Value:  !Sub '${Application}'
-        - Key:    business_unit
-          Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'      
-        - Key:    component
-          Value:  !Sub '${Component}'
-        - Key:    env
-          Value:  !Sub '${Env}'
-        - Key:    owner
-          Value:  !Sub '${Owner}'
-        - Key:    pci_classification
-          Value:  !Sub '${PCIClassification}'
-        - Key:    pci_scope
-          Value:  !Sub '${PCIScope}'
-        - Key:    platform
-          Value:  !Sub '${Platform}'
-        - Key:    squad
-          Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -1767,8 +1932,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1783,10 +1946,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -1807,8 +1966,6 @@ Resources:
           Value:  !Sub '${Application}'
         - Key:    business_unit
           Value:  !Sub '${BusinessUnitName}'
-        - Key:    cloud_provider
-          Value:  !Sub '${CloudProvider}'
         - Key:    component
           Value:  !Sub '${Component}'
         - Key:    env
@@ -1823,10 +1980,6 @@ Resources:
           Value:  !Sub '${Platform}'
         - Key:    squad
           Value:  !Sub '${Squad}'
-        - Key:    email
-          Value:  !Sub '${Email}'
-        - Key:    slack
-          Value:  !Sub '${Slack}'
         - Key:    service
           Value:  !Sub '${Service}'
         - Key:    stack
@@ -2007,6 +2160,13 @@ Resources:
               - kms:GenerateDataKey*
               - kms:Describe*
             Resource: '*'
+  
+  ServiceLinkedRoleForEC2Spot:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: spot.amazonaws.com
+      Description: Service-linked role for managing Spot Instances with Karpenter
+    Condition: shouldCreateKarpenterRoleForSpot
 
 Outputs:
   ClusterStackName:
