@@ -1,0 +1,901 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+  - AWS::LanguageExtensions
+  - AWS::Serverless-2016-10-31
+Description: Application responsible for detecting transactional fraud risk in real time.
+
+Parameters:
+  Env:
+    Type: String
+  BusinessUnit:
+    Type: String
+    Default: risks
+  Platform:
+    Type: String
+    Default: dockone
+  Application:
+    Type: String
+    Default: fraud-prevention
+  PciScopeTrue:
+    Type: String
+    Default: true
+  PciScopeFalse:
+    Type: String
+    Default: false
+  PCI:
+    Type: String
+    Default: pci
+  PCIConnected:
+    Type: String
+    Default: pci-connected
+  ServiceName:
+    Type: String
+    Default: fraud-prevention-gateway
+  SquadName:
+    Type: String
+    Default: squad-horus
+  SquadSlack:
+    Type: String
+    Default: priv-squad-horus
+  SquadMail:
+    Type: String
+    Default: squad-horus@dock.tech
+  KubernetesProviderURL:
+    Type: String
+    Description: OpenID Connect provider URL
+  KubernetesProviderPCIURL:
+    Type: String
+    Description: OpenID Connect provider URL for PCI
+  KubernetesServiceAccount:
+    Type: String
+    Description: Kubernetes ServiceAccount name
+  KubernetesNamespace:
+    Type: String
+    Description: Kubernetes namespace for the application
+  KubernetesIngress:
+    Type: String
+    Description: Kubernetes ingress NLB domain and port
+  KubernetesIngressPCI:
+    Type: String
+    Description: Kubernetes ingress NLB domain and port for PCI
+  VpceConnectionId:
+    Type: String
+    Description: ID for VPC private endpoint connection
+  VpceConnectionIdPci:
+    Type: String
+    Description: ID for VPC private endpoint connection for PCI
+  VPCEndpointId:
+    Type: String
+    Description: ID for VPC private endpoint
+  VPCEndpointIdPCI:
+    Type: String
+    Description: ID for VPC private endpoint PCI
+
+Mappings:
+  Api:
+    Configs:
+      Methods:
+        - get
+        - put
+    Adapter:
+      Methods:
+        - get
+        - put
+    Antifraud:
+      Methods:
+        - get
+        - put
+    Transactions:
+      Methods:
+        - get
+        - patch
+    ConfigsFM:
+      Methods:
+        - get
+        - put
+
+Resources:
+  FraudPreventionGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: FraudPreventionGatewayRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com/id/${eksId}"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "${eksEndpoint}:sub": "system:serviceaccount:${KubernetesNamespace}-${Env}:${KubernetesServiceAccount}-${Env}"
+                  }
+                }
+              }
+            ]
+          }
+        - eksId: !Select [4, !Split ["/", !Ref KubernetesProviderURL]]
+          eksEndpoint: !Select [1, !Split ["//", !Ref KubernetesProviderURL]]
+      ManagedPolicyArns:
+        - !ImportValue BankingSecretReaderAssumePolicy
+      Policies:
+        - PolicyName: FraudPreventionGatewayRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - secretsmanager:GetSecretValue
+                  - sns:Publish
+                  - sqs:Change*
+                  - sqs:DeleteMessage*
+                  - sqs:Get*
+                  - sqs:List*
+                  - sqs:PurgeQueue
+                  - sqs:Receive*
+                  - sqs:Send*
+                  - sqs:Set*
+                  - ssm:GetParameter
+                  - sts:AssumeRoleWithWebIdentity
+                Resource: "*"
+        - PolicyName: FraudPreventionGatewayRoleStepFunctionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+                - states:StopExecution
+              Resource: [
+                "arn:aws:states:*"
+              ]
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !Ref ServiceName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !Ref SquadName
+        - Key: slack
+          Value: !Ref SquadSlack
+        - Key: email
+          Value: !Ref SquadMail
+        - Key: resource
+          Value: iam-role
+        - Key: business_unit
+          Value: !Ref BusinessUnit
+        - Key: platform
+          Value: !Ref Platform
+        - Key: application
+          Value: !Ref Application
+        - Key: component
+          Value: !Ref ServiceName
+        - Key: pci_scope
+          Value: !Ref PciScopeFalse
+        - Key: pci_classification
+          Value: !Ref PCIConnected
+        - Key: owner
+          Value: !Ref SquadName
+
+  FraudPreventionGatewayPrivateApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/dock/apigateway/fraud-prevention-gateway-private"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: email
+          Value: !Ref SquadMail
+        - Key: resource
+          Value: log-group
+        - Key: service
+          Value: !Ref ServiceName
+        - Key: slack
+          Value: !Ref SquadSlack
+        - Key: squad
+          Value: !Ref SquadName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: business_unit
+          Value: !Ref BusinessUnit
+        - Key: platform
+          Value: !Ref Platform
+        - Key: application
+          Value: !Ref Application
+        - Key: component
+          Value: !Ref ServiceName
+        - Key: pci_scope
+          Value: !Ref PciScopeFalse
+        - Key: pci_classification
+          Value: !Ref PCIConnected
+        - Key: owner
+          Value: !Ref SquadName
+
+  FraudPreventionGatewayPrivateApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FraudPreventionGatewayPrivateApi
+      StageName: Live
+      Variables:
+        apiName: fraud-prevention-gateway-private
+      EndpointConfiguration: PRIVATE
+      AccessLogSetting:
+        DestinationArn: !GetAtt [FraudPreventionGatewayPrivateApiLogGroup, Arn]
+        Format: '{"responseTime": $context.integrationLatency,"requestTime": $context.requestTimeEpoch,"responseLength": $context.responseLength,"apiName":"$context.authorizer.apiName","requestDate":"$context.requestTime","requestId":"$context.requestId","sourceIP":"$context.identity.sourceIp","userAgent":"$context.identity.userAgent","issuer":"$context.authorizer.claims.client_id","WAFresponse":"$context.wafResponseCode","httpMethod":"$context.httpMethod","path":"$context.path","responseCode":"$context.status","proxyResponse":"$context.integrationStatus","caller":"$context.identity.caller","user":"$context.identity.user","resourcePath":"$context.resourcePath","protocol":"$context.protocol","apiId":"$context.apiId","stage":"$context.stage","appClient":"$context.authorizer.principalId","issuerName":"$context.authorizer.nome_emissor","accessLogIssuerName":"$context.authorizer.nome_emissor","issuerId":"$context.authorizer.id_emissor","tokenType":"$context.authorizer.token_type","context":"$context","integrationErrorMessage":"$context.integrationErrorMessage","context.authorizer.integrationLatency":"$context.authorizer.integrationLatency","context.authorizer.integrationStatus":"$context.authorizer.integrationStatus","context.integration.error":"$context.integration.error","context.integration.integrationStatus":"$context.integration.integrationStatus","context.integration.latency":"$context.integration.latency","context.integration.requestId":"$context.integration.requestId","context.integration.status":"$context.integration.status","context.integrationErrorMessage":"$context.integrationErrorMessage","context.integrationLatency":"$context.integrationLatency","context.integrationStatus":"$context.integrationStatus"}'
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: "true"
+          DataTraceEnabled: "false"
+          LoggingLevel: INFO
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          description: API for the Fraud Prevention Gateway application
+          title: fraud-prevention-gateway
+          version: 1.0.0
+        schemes:
+          - https
+        definitions:
+          Empty:
+            type: object
+        x-amazon-apigateway-policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: 'Deny'
+              Principal: '*'
+              Action: 'execute-api:Invoke'
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringNotEquals:
+                  aws:sourceVpce: !Ref VPCEndpointId
+            - Effect: 'Allow'
+              Principal: '*'
+              Action: 'execute-api:Invoke'
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringEquals:
+                  aws:sourceVpce: !Ref VPCEndpointId
+        paths:
+          /fraud-prevention-gateway/v1/validate:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", ["https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/bank/validate"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/configs:
+            'Fn::ForEach::InnerForMethod':
+              - Method
+              - !FindInMap [ Api, Configs, Methods ]
+              - '${Method}':
+                  parameters:
+                    - name: request-id
+                      in: header
+                      required: true
+                    - name: client_id
+                      in: query
+                      required: true
+                      type: string
+                      format: string
+                    - name: service_key
+                      in: query
+                      required: true
+                      type: string
+                      format: string
+                  x-amazon-apigateway-integration:
+                    type: http_proxy
+                    httpMethod: !Ref Method
+                    uri: !Join ["", ["https://",!Ref KubernetesIngress,"/fraud-prevention-gateway/v1/configs"]]
+                    connectionType: VPC_LINK
+                    connectionId: !Ref VpceConnectionId
+                    integrationResponses:
+                      - statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    requestParameters:
+                      integration.request.header.request-id: method.request.header.request-id
+                      integration.request.querystring.client_id: method.request.querystring.client_id
+                      integration.request.querystring.service_key: method.request.querystring.service_key
+          /fraud-prevention-gateway/v1/configs/transactional/{name}:
+            patch:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+                - name: name
+                  in: path
+                  required: true
+                  type: string
+                  format: string
+                - name: client_id
+                  in: query
+                  required: true
+                  type: string
+                  format: string
+                - name: product_id
+                  in: query
+                  required: true
+                  type: string
+                  format: string
+              responses:
+                "204":
+                  description: Config Created/Updated
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+              x-amazon-apigateway-integration:
+                uri: !Join ["", ["https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/configs/transactional/{name}"]]
+                responses:
+                  default:
+                    statusCode: "204"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'PATCH'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                  integration.request.path.name: method.request.path.name
+                  integration.request.querystring.client_id: method.request.querystring.client_id
+                  integration.request.querystring.product_id: method.request.querystring.product_id
+                httpMethod: "PATCH"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/adapter/configs:
+            'Fn::ForEach::InnerForMethod':
+              - Method
+              - !FindInMap [ Api, Adapter, Methods ]
+              - '${Method}':
+                  parameters:
+                    - name: request-id
+                      in: header
+                      required: true
+                    - name: service_id
+                      in: query
+                      required: false
+                      type: string
+                      format: string
+                  x-amazon-apigateway-integration:
+                    type: http_proxy
+                    httpMethod: !Ref Method
+                    uri: !Join ["", ["https://",!Ref KubernetesIngress,"/fraud-prevention-gateway/v1/adapter/configs"]]
+                    connectionType: VPC_LINK
+                    connectionId: !Ref VpceConnectionId
+                    integrationResponses:
+                      - statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    requestParameters:
+                      integration.request.header.request-id: method.request.header.request-id
+                      integration.request.querystring.service_id: method.request.querystring.service_id
+          /fraud-prevention-gateway/v1/antifraud/validation:
+            'Fn::ForEach::InnerForMethod':
+              - Method
+              - !FindInMap [ Api, Antifraud, Methods ]
+              - '${Method}':
+                  parameters:
+                    - name: request-id
+                      in: header
+                      required: true
+                  x-amazon-apigateway-integration:
+                    type: http_proxy
+                    httpMethod: !Ref Method
+                    uri: !Join ["", ["https://",!Ref KubernetesIngress,"/fraud-prevention-gateway/v1/antifraud/validation"]]
+                    connectionType: VPC_LINK
+                    connectionId: !Ref VpceConnectionId
+                    integrationResponses:
+                      - statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    requestParameters:
+                      integration.request.header.request-id: method.request.header.request-id
+          /fraud-prevention-gateway/v1/adapter/horus-v1/validate:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/adapter/horus-v1/validate"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/adapter/horus-v1/transaction/{externalID}:
+            get:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+                - name: externalID
+                  in: path
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/adapter/horus-v1/transaction/{externalID}"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                  integration.request.path.externalID: method.request.path.externalID
+                httpMethod: "GET"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/adapter/horus-v2/validate:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/adapter/horus-v2/validate"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/transactions/{transactionId}:
+            'Fn::ForEach::InnerForMethod':
+              - Method
+              - !FindInMap [ Api, Transactions, Methods ]
+              - '${Method}':
+                  parameters:
+                    - name: request-id
+                      in: header
+                      required: true
+                    - name: transactionId
+                      in: path
+                      required: true
+                    - name: client-id
+                      in: header
+                      required: false
+                    - name: origin
+                      in: query
+                      required: false
+                      type: string
+                  format: string
+                  x-amazon-apigateway-integration:
+                    type: http_proxy
+                    httpMethod: !Ref Method
+                    uri: !Join ["", ["https://",!Ref KubernetesIngress,"/fraud-prevention-gateway/v1/transactions/{transactionId}"]]
+                    connectionType: VPC_LINK
+                    connectionId: !Ref VpceConnectionId
+                    integrationResponses:
+                      - statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    requestParameters:
+                      integration.request.header.request-id: method.request.header.request-id
+                      integration.request.path.transactionId: method.request.path.transactionId
+                      integration.request.header.client-id: method.request.header.client-id
+                      integration.request.querystring.origin: method.request.querystring.origin
+          /fraud-prevention-gateway/v1/info:
+            get:
+              responses:
+                "200":
+                  description: OK
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/info"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                httpMethod: "GET"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/nomonetary/validate:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/nomonetary/validate"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/antifraud/pad:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/antifraud/pad"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/redirect-fraud-manager/transaction:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+                - name: client-id
+                  in: header
+                  required: false
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/redirect-fraud-manager/transaction"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                  integration.request.header.client-id: method.request.header.client-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/redirect-fraud-manager/datafeed:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+                - name: client-id
+                  in: header
+                  required: false
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngress, "/fraud-prevention-gateway/v1/redirect-fraud-manager/datafeed"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                  integration.request.header.client-id: method.request.header.client-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionId
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/configs/fraud-manager:
+            'Fn::ForEach::InnerForMethod':
+              - Method
+              - !FindInMap [ Api, ConfigsFM, Methods ]
+              - '${Method}':
+                  parameters:
+                    - name: request-id
+                      in: header
+                      required: true
+                    - name: client_id
+                      in: query
+                      required: true
+                      type: string
+                      format: string
+                    - name: base_route
+                      in: query
+                      required: true
+                      type: string
+                      format: string
+                    - name: sub_route
+                      in: query
+                      required: true
+                      type: string
+                      format: string
+                  x-amazon-apigateway-integration:
+                    type: http_proxy
+                    httpMethod: !Ref Method
+                    uri: !Join ["", ["https://",!Ref KubernetesIngress,"/fraud-prevention-gateway/v1/configs/fraud-manager"]]
+                    connectionType: VPC_LINK
+                    connectionId: !Ref VpceConnectionId
+                    integrationResponses:
+                      - statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    requestParameters:
+                      integration.request.header.request-id: method.request.header.request-id
+                      integration.request.querystring.client_id: method.request.querystring.client_id
+                      integration.request.querystring.base_route: method.request.querystring.base_route
+                      integration.request.querystring.sub_route: method.request.querystring.sub_route
+      Tags:
+        env: !Ref Env
+        email: !Ref SquadMail
+        resource: api-gateway
+        service: !Ref ServiceName
+        slack: !Ref SquadSlack
+        squad: !Ref SquadName
+        stack: !Sub ${AWS::StackName}
+        business_unit: !Ref BusinessUnit
+        platform: !Ref Platform
+        application: !Ref Application
+        component: !Ref ServiceName
+        pci_scope: !Ref PciScopeFalse
+        pci_classification: !Ref PCIConnected
+        owner: !Ref SquadName
+
+  FraudPreventionGatewayPCIRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: FraudPreventionGatewayPCIRole
+      AssumeRolePolicyDocument: !Sub
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/oidc.eks.${AWS::Region}.amazonaws.com/id/${eksId}"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "${eksEndpoint}:sub": "system:serviceaccount:${KubernetesNamespace}-${Env}:${KubernetesServiceAccount}-${Env}"
+                  }
+                }
+              }
+            ]
+          }
+        - eksId: !Select [4, !Split ["/", !Ref KubernetesProviderPCIURL]]
+          eksEndpoint: !Select [1, !Split ["//", !Ref KubernetesProviderPCIURL]]
+      ManagedPolicyArns:
+        - !ImportValue BankingSecretReaderAssumePolicy
+      Policies:
+        - PolicyName: FraudPreventionGatewayPCIRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:*
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - secretsmanager:GetSecretValue
+                  - sns:Publish
+                  - sqs:Change*
+                  - sqs:DeleteMessage*
+                  - sqs:Get*
+                  - sqs:List*
+                  - sqs:PurgeQueue
+                  - sqs:Receive*
+                  - sqs:Send*
+                  - sqs:Set*
+                  - ssm:GetParameter
+                  - sts:AssumeRoleWithWebIdentity
+                Resource: "*"
+        - PolicyName: FraudPreventionGatewayRoleStepFunctionPCIPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+                - states:StopExecution
+              Resource: [
+                "arn:aws:states:*"
+              ]
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: service
+          Value: !Ref ServiceName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: squad
+          Value: !Ref SquadName
+        - Key: slack
+          Value: !Ref SquadSlack
+        - Key: email
+          Value: !Ref SquadMail
+        - Key: resource
+          Value: iam-role
+        - Key: business_unit
+          Value: !Ref BusinessUnit
+        - Key: platform
+          Value: !Ref Platform
+        - Key: application
+          Value: !Ref Application
+        - Key: component
+          Value: !Ref ServiceName
+        - Key: pci_scope
+          Value: !Ref PciScopeTrue
+        - Key: pci_classification
+          Value: !Ref PCI
+        - Key: owner
+          Value: !Ref SquadName
+
+  FraudPreventionGatewayPrivatePCIApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/dock/apigateway/fraud-prevention-gateway-private-pci"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: email
+          Value: !Ref SquadMail
+        - Key: resource
+          Value: log-group
+        - Key: service
+          Value: !Ref ServiceName
+        - Key: slack
+          Value: !Ref SquadSlack
+        - Key: squad
+          Value: !Ref SquadName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: business_unit
+          Value: !Ref BusinessUnit
+        - Key: platform
+          Value: !Ref Platform
+        - Key: application
+          Value: !Ref Application
+        - Key: component
+          Value: !Ref ServiceName
+        - Key: pci_scope
+          Value: !Ref PciScopeTrue
+        - Key: pci_classification
+          Value: !Ref PCI
+        - Key: owner
+          Value: !Ref SquadName
+
+  FraudPreventionGatewayPrivatePCIApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FraudPreventionGatewayPrivatePCIApi
+      StageName: Live
+      Variables:
+          apiName: fraud-prevention-gateway-private-pci
+      EndpointConfiguration: PRIVATE
+      AccessLogSetting:
+          DestinationArn: !GetAtt [FraudPreventionGatewayPrivatePCIApiLogGroup, Arn]
+          Format: '{"responseTime": $context.integrationLatency,"requestTime": $context.requestTimeEpoch,"responseLength": $context.responseLength,"apiName":"$context.authorizer.apiName","requestDate":"$context.requestTime","requestId":"$context.requestId","sourceIP":"$context.identity.sourceIp","userAgent":"$context.identity.userAgent","issuer":"$context.authorizer.claims.client_id","WAFresponse":"$context.wafResponseCode","httpMethod":"$context.httpMethod","path":"$context.path","responseCode":"$context.status","proxyResponse":"$context.integrationStatus","caller":"$context.identity.caller","user":"$context.identity.user","resourcePath":"$context.resourcePath","protocol":"$context.protocol","apiId":"$context.apiId","stage":"$context.stage","appClient":"$context.authorizer.principalId","issuerName":"$context.authorizer.nome_emissor","accessLogIssuerName":"$context.authorizer.nome_emissor","issuerId":"$context.authorizer.id_emissor","tokenType":"$context.authorizer.token_type","context":"$context","integrationErrorMessage":"$context.integrationErrorMessage","context.authorizer.integrationLatency":"$context.authorizer.integrationLatency","context.authorizer.integrationStatus":"$context.authorizer.integrationStatus","context.integration.error":"$context.integration.error","context.integration.integrationStatus":"$context.integration.integrationStatus","context.integration.latency":"$context.integration.latency","context.integration.requestId":"$context.integration.requestId","context.integration.status":"$context.integration.status","context.integrationErrorMessage":"$context.integrationErrorMessage","context.integrationLatency":"$context.integrationLatency","context.integrationStatus":"$context.integrationStatus"}'
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: "true"
+          DataTraceEnabled: "false"
+          LoggingLevel: INFO
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          description: PCI API for the Fraud Prevention Gateway application
+          title: fraud-prevention-gatewa
+          version: 1.0.0
+        schemes:
+          - https
+        definitions:
+          Empty:
+            type: object
+        x-amazon-apigateway-policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: 'Deny'
+              Principal: '*'
+              Action: 'execute-api:Invoke'
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringNotEquals:
+                  aws:sourceVpce: !Ref VPCEndpointIdPCI
+            - Effect: 'Allow'
+              Principal: '*'
+              Action: 'execute-api:Invoke'
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringEquals:
+                  aws:sourceVpce: !Ref VPCEndpointIdPCI
+        paths:
+          /fraud-prevention-gateway/v1/validate:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngressPCI, "/fraud-prevention-gateway/v1/card/validate"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionIdPci
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+          /fraud-prevention-gateway/v1/redirect-fraud-manager/transaction:
+            post:
+              parameters:
+                - name: request-id
+                  in: header
+                  required: true
+                - name: client-id
+                  in: header
+                  required: true
+              x-amazon-apigateway-integration:
+                uri: !Join ["", [ "https://", !Ref KubernetesIngressPCI, "/fraud-prevention-gateway/v1/redirect-fraud-manager/transaction"]]
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.request-id: method.request.header.request-id
+                  integration.request.header.client-id: method.request.header.client-id
+                httpMethod: "POST"
+                connectionType: "VPC_LINK"
+                connectionId: !Ref VpceConnectionIdPci
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "http_proxy"
+      Tags:
+        env: !Ref Env
+        email: !Ref SquadMail
+        resource: api-gateway
+        service: !Ref ServiceName
+        slack: !Ref SquadSlack
+        squad: !Ref SquadName
+        stack: !Sub ${AWS::StackName}
+        business_unit: !Ref BusinessUnit
+        platform: !Ref Platform
+        application: !Ref Application
+        component: !Ref ServiceName
+        pci_scope: !Ref PciScopeTrue
+        pci_classification: !Ref PCI
+        owner: !Ref SquadName

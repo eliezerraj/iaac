@@ -1,0 +1,326 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description:  Template to create NLB v3.0 13/05/25
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  VPCEndpointIPs:
+    Default: 10.214.133.10,10.214.246.10,10.214.97.3,10.214.135.50,10.214.221.143,10.214.81.134
+    Type: CommaDelimitedList   
+  LoadBalancerType:
+    Type: String
+    Default: network
+    AllowedValues:
+      - network
+      - application
+      - gateway
+  Scheme:
+    Type: String
+    Default: internal
+    AllowedValues:
+      - internal
+      - internet-facing
+  IpAddressType:
+    Type: String
+    Default: ipv4
+    AllowedValues:
+      - ipv4
+      - dualstack
+  WebACLArn:
+    Type: String
+    Default: NoValue
+  AccessLogsEnable:
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+  Application:
+    Type: String
+    Default: nlb-grp-eks
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  Component:
+    Type: String
+    Default: nlb
+  Owner:
+    Type: String
+    Default: architecture
+  PCIClassification:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci    
+  Platform:
+    Type:  String  
+    Default: architecture
+  LoadBalancerName:
+    Type: String
+    Default: nlb-arch-gpr-eks-apex
+  CustomDNS:
+    Type: String
+    Default: false
+    AllowedValues:
+      - false
+      - true
+
+# Region = Account AWS 908671954593=Arch
+Mappings:
+  Region:
+    sa-east-1:
+      value: 992382474575
+    us-east-2:
+      value: 992382474575      
+  Network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+      CertificateArn: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
+      HostedZoneId: Z08808671BQOU9WUREDU
+      DomainName: nlb-arch-gpr-eks-apex.global.architecture.caradhras.io
+        
+Conditions:
+  isAlb: !Equals [!Ref LoadBalancerType, application]
+  isAccessLogsEnable: !Equals [!Ref AccessLogsEnable, true]
+  isPrd: !Equals [!Ref Env, prd]  
+  isCustomDNS: !Equals [!Ref CustomDNS, true]
+
+Resources:
+  S3BucketLogs:
+    Condition: isAccessLogsEnable
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Sub nlb-logs-992382474575-${LoadBalancerName}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: businessUnitName
+          Value: !Ref BusinessUnitName
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: owner
+          Value: !Ref Owner
+        - Key: platform
+          Value: !Ref Platform
+        - Key: application
+          Value: !Ref Application
+        - Key: component
+          Value: !Ref Component
+        - Key: pciClassification
+          Value: !Ref PCIClassification
+
+  S3LogsBucketPolicy:
+    Condition: isAccessLogsEnable  
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketLogs
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ELBAccountLogsPermission
+            Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub "${S3BucketLogs.Arn}/*"
+            Principal: 
+              AWS:
+                - !Join
+                    - ''
+                    - - 'arn:aws:iam::'
+                      - !FindInMap  
+                          - Region
+                          - !Ref AWS::Region
+                          - value
+                      - ':root'
+          - Sid: AWSLogDeliveryWrite
+            Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub "${S3BucketLogs.Arn}/*"
+            Principal: 
+              Service:
+                - delivery.logs.amazonaws.com
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: !Ref IpAddressType
+      Name: !Ref LoadBalancerName
+      Scheme: !Ref Scheme
+      Subnets:
+        - !FindInMap [ Network, !Ref Env, SubnetAZA ]
+        - !FindInMap [ Network, !Ref Env, SubnetAZB ] 
+        - !FindInMap [ Network, !Ref Env, SubnetAZC ]
+      Type: !Ref LoadBalancerType
+      SecurityGroups:
+        - !Ref NLBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true      
+        - Key: deletion_protection.enabled
+          Value: !If [ isPrd, true, false ]
+        - Key: access_logs.s3.enabled
+          Value: !Ref AccessLogsEnable           
+        -
+          !If
+            - isAccessLogsEnable
+            - Key: access_logs.s3.bucket
+              Value: !Ref S3BucketLogs
+            - !Ref AWS::NoValue          
+      Tags:
+        - 
+          Key: env
+          Value: !Ref Env
+        - 
+          Key: businessUnitName
+          Value: !Ref BusinessUnitName
+        - 
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        - 
+          Key: owner
+          Value: !Ref Owner
+        - 
+          Key: platform
+          Value: !Ref Platform
+        - 
+          Key: application
+          Value: !Ref Application
+        - 
+          Key: component
+          Value: !Ref Component
+        - 
+          Key: pciClassification
+          Value: !Ref PCIClassification
+
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the NLB
+      VpcId: !FindInMap [ Network, !Ref Env, VpcId ]
+      Name:  !Sub "sec-grp-${LoadBalancerName}"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !FindInMap [ Network, !Ref Env, VpcCidr ]
+      Tags:
+        - Key: name
+          Value: !Sub "sec-grp-${LoadBalancerName}"
+        -
+          Key: resource
+          Value: security-group
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+
+  WebACLAssociation:
+    Condition: isAlb
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref LoadBalancer
+      WebACLArn: !Ref WebACLArn
+
+  RecordSet:
+    Condition: isCustomDNS
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      HostedZoneId: !FindInMap [ Network, !Ref Env, HostedZoneId ]
+      Name: !FindInMap [ Network, !Ref Env, DomainName ]
+      AliasTarget:
+        HostedZoneId: !GetAtt [LoadBalancer, CanonicalHostedZoneID]
+        DNSName: !GetAtt [LoadBalancer, DNSName]
+
+  GlobalVPCEndpointListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Order: 1
+          TargetGroupArn: !Ref GlobalVPCEndpointTargets
+          Type: forward
+      LoadBalancerArn: !GetAtt LoadBalancer.LoadBalancerArn
+      Port: 443
+      Certificates:
+        - CertificateArn: !FindInMap [ Network, !Ref Env, CertificateArn ] 
+      Protocol: TLS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-0-2021-06
+
+  GlobalVPCEndpointTargets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: nlb-arch-gpr-eks-apex-tg
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPort: 443
+      HealthCheckProtocol: TCP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 443
+      Protocol: TLS
+      TargetType: ip
+      Targets:
+      - Id: !Select [ 0, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 1, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 2, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 3, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 4, !Ref VPCEndpointIPs ]
+      - Id: !Select [ 5, !Ref VPCEndpointIPs ]
+      VpcId: !FindInMap [ Network, !Ref Env, VpcId ] 
+      Tags:
+        - Key: name
+          Value: nlb-arch-gpr-eks-apex-tg
+        -
+          Key: env
+          Value: !Ref Env
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: owner
+          Value: !Ref Owner
+        -
+          Key: component
+          Value: target-grp
+        -
+          Key: pciClassification
+          Value: !If [isPrd, pci, non-pci]
+
+#Outputs:
+#  LoadBalancerArn:
+#    Value: !Ref LoadBalancer
+#    Export:
+#      Name: !Sub ${LoadBalancerName}-Arn
+#  LoadBalancerDnsName:
+#    Value: !GetAtt LoadBalancer.DNSName
+#    Export:
+#      Name: !Sub ${LoadBalancerName}-DNSName
+#  LoadBalancerCanonicalHostedZoneID:
+#    Value: !GetAtt LoadBalancer.CanonicalHostedZoneID
+#    Export:
+#      Name: !Sub ${LoadBalancerName}-CanonicalHostedZoneID

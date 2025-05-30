@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform:
 - AWS::Serverless-2016-10-31
-Description: Apigateway Public Lambda Integration v3.3 - 06/05/2025
+Description: Apigateway Private Lambda Integration v3.4 - 15/05/2025
 
 Parameters:
   Versao:
@@ -18,77 +18,70 @@ Parameters:
     Type: String
     Description: Lambda ARN for invocation
     Default: arn:aws:lambda:us-east-2:908671954593:function:my-lambda-test
-  PublicApiLogFormat:
+  PrivateApiLogFormat:
     Type: String
-    Default: '{"api": "$context.authorizer.apiName", "requestId": "$context.requestId",
-      "sourceIP": "$context.identity.sourceIp", "userAgent": "$context.identity.userAgent",
-      "WAFresponse": "$context.wafResponseCode", "httpMethod": "$context.httpMethod",
-      "path": "$context.path", "respTime":"$context.integrationLatency", "responseCode":
-      "$context.status", "integRespCode": "$context.integrationStatus", "reqTime":"$context.requestTimeEpoch",
-      "resourcePath": "$context.resourcePath", "apiId": "$context.apiId", "appClient":
-      "$context.authorizer.principalId", "jwtId": "$context.authorizer.jwt_id",
-      "authLatency": "$context.authorizer.latency"}'
-  ApiPublicName:
+    Default: '{"requestId": "$context.requestId", "sourceIP": "$context.identity.sourceIp",
+      "userAgent": "$context.identity.userAgent", "WAFresponse": "$context.wafResponseCode",
+      "httpMethod": "$context.httpMethod", "path": "$context.path", "respTime":$context.integrationLatency,
+      "responseCode": "$context.status", "integRespCode": "$context.integrationStatus",
+      "reqTime":$context.requestTimeEpoch, "resourcePath": "$context.resourcePath",
+      "apiId": "$context.apiId"}'
+  VPCEndpointId:
     Type: String
-    Default: go-lambda
-  TruststoreUri:
+    Default: vpce-0cc0b1181b93539f0  
+  ApiPrivateName:
     Type: String
-    Description: URI of the bucket where the Truststore is located
-    Default: s3://docktech-908671954593-truststore-mtls-v04/mtls-api-go-global.crt
-  TruststoreVersion:
-    Type: String
-    Description: Version of the file where the Truststore is located
-    Default: cizQ0Rh_RvoKFIysvMccFiSqqDt3hAk1
-  ApiPublicLogGroupName:
+    Default: go-lambda-pv
+  ApiPrivateLogGroupName:
     Type: String
     Description: Name of API Gateway Log Group
-    Default: /dock/apigateway/go-lambda
-  ApiGatewayDomainName:
-    Type: String
-    Default: go-lambda.architecture.caradhras.io
-  ApiGatewayMltsDomainName:
-    Type: String
-    Default: go-lambda-mtls.architecture.caradhras.io
-  AuthorizerUri:
-    Type: String
-    Default: arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:908671954593:function:go-oauth-apigw-authorizer-lambda/invocations
-  AuthorizerARN:
-    Type: String
-    Default: arn:aws:lambda:us-east-2:908671954593:function:go-oauth-apigw-authorizer-lambda
-  EdgeCertificateArn:
-    Type: String
-    Default: arn:aws:acm:us-east-1:908671954593:certificate/6dfea057-7ca7-41b9-95a0-b63aaa6640a2 
-  RegionalCertificateArn:
-    Type: String
-    Default: arn:aws:acm:us-east-2:908671954593:certificate/a784955c-9a8b-4403-bea2-527035ab3782
+    Default: /dock/apigateway/go-lambda-pv
   WafaclArn:
     Type: String
     Description: Association WAF in API ApiGateway
     Default: arn:aws:wafv2:us-east-2:908671954593:regional/webacl/FMManagedWebACLV2-acl-basic-1663942040591/0c9a45b3-1c87-4cd9-86a9-e50fb1914e53
   Application:
     Type: String
-    Default: go-lambda
+    Default: go-lambda-pv
   Owner:
     Type: String
     Default: architecture
   Service:
     Type: String
-    Default: go-lambda
+    Default: go-lambda-pv
   Squad:
     Type: String
     Default: architecture
 
+Conditions:
+  isPrd: !Equals [!Ref Env, prd]
+  isPrdOrQa:
+    'Fn::Or':
+      - 'Fn::Equals':
+          - !Ref Env
+          - prd
+      - 'Fn::Equals':
+          - !Ref Env
+          - qa
+
 Mappings:
+  Network:
+    dev:
+      Vpc: vpc-0df31a6e2d113d8b7
+    hml:
+      Vpc: vpc-053bf362926211174
+    prd:
+      Vpc: vpc-0fa3325d4843786ca,vpc-028b0a127e9669159
   ApigwMap:
     Lambda:
       EndpointURL: go-lambda.architecture.caradhras.io
 
 Resources:
-  ApiPublicLogGroup:
+  ApiPrivateLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName:
-        Ref: ApiPublicLogGroupName
+        Ref: ApiPrivateLogGroupName
       RetentionInDays: 7
       Tags:
       - Key: application
@@ -112,7 +105,7 @@ Resources:
         Value:
           Fn::Sub: ${AWS::StackName}
   
-  ApiPublicGoLambdaGateway:
+  ApiPrivateGateway:
     Type: AWS::Serverless::Api
     Properties:
       BinaryMediaTypes:
@@ -120,18 +113,18 @@ Resources:
       AccessLogSetting:
         DestinationArn:
           Fn::GetAtt:
-          - ApiPublicLogGroup
+          - ApiPrivateLogGroup
           - Arn
         Format:
-          Ref: PublicApiLogFormat
+          Ref: PrivateApiLogFormat
       AlwaysDeploy: true
       DefinitionBody:
         swagger: '2.0'
         info:
-          title: go-lambda
+          title: go-lambda-pv
         tags:
-        - name: go-lambda
-          description: go-lambda
+        - name: go-lambda-pv
+          description: go-lambda-pv
         schemes:
         - https
         paths:
@@ -156,8 +149,6 @@ Resources:
                   integration.request.header.client-id: context.authorizer.tenant_id
                   integration.request.header.X-Forwarded-For: context.identity.sourceIp      
                   integration.request.header.jwt-id: context.authorizer.jwt_id
-              security:
-              - authorizer: []
             post:
               produces:
               - application/json
@@ -178,8 +169,6 @@ Resources:
                   integration.request.header.client-id: context.authorizer.tenant_id
                   integration.request.header.X-Forwarded-For: context.identity.sourceIp      
                   integration.request.header.jwt-id: context.authorizer.jwt_id
-              security:
-              - authorizer: []
             patch:
               produces:
               - application/json
@@ -200,20 +189,23 @@ Resources:
                   integration.request.header.client-id: context.authorizer.tenant_id
                   integration.request.header.X-Forwarded-For: context.identity.sourceIp      
                   integration.request.header.jwt-id: context.authorizer.jwt_id
-              security:
-              - authorizer: []
-        x-amazon-apigateway-api-key-source: AUTHORIZER
-        securityDefinitions:
-          authorizer:
-            type: apiKey
-            name: Unused
-            in: header
-            x-amazon-apigateway-authtype: custom
-            x-amazon-apigateway-authorizer:
-              authorizerUri: !Ref AuthorizerUri
-              authorizerResultTtlInSeconds: 600
-              identitySource: method.request.header.Authorization, context.path, context.httpMethod, context.identity.sourceIp
-              type: request
+        x-amazon-apigateway-policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Deny"
+              Principal: "*"
+              Action: "execute-api:Invoke"
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringNotEquals:
+                  aws:sourceVpc: !If [ isPrdOrQa, !Split [",", !FindInMap [ Network, !Ref Env, Vpc] ], !FindInMap [ Network, !Ref Env, Vpc]]
+            - Effect: "Allow"
+              Principal: "*"
+              Action: "execute-api:Invoke"
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*
+              Condition:
+                StringEquals:
+                  aws:sourceVpc: !If [ isPrdOrQa, !Split [",", !FindInMap [ Network, !Ref Env, Vpc] ], !FindInMap [ Network, !Ref Env, Vpc]]
         definitions:
           Empty:
             type: object
@@ -249,10 +241,12 @@ Resources:
             responseTemplates:
               application/json: '{"error": { "id": "$context.requestId", "description":
                 "Too many requests", "code": "429"}}'
-      Description: API Pulic Lambda Integration
+      Description: API Private Lambda Integration
       DisableExecuteApiEndpoint: true
       EndpointConfiguration:
-        Type: EDGE
+        Type: PRIVATE
+        VPCEndpointIds:
+          - !Ref VPCEndpointId
       MethodSettings:
       - ResourcePath: /*
         HttpMethod: '*'
@@ -277,37 +271,7 @@ Resources:
       TracingEnabled: true # xray enabled
       Variables:
         apiName:
-          Ref: ApiPublicName
-
-  ApiCustomDomainName:
-    Type: AWS::ApiGateway::DomainName
-    Properties:
-      DomainName:
-        Ref: ApiGatewayDomainName
-      EndpointConfiguration:
-        Types:
-        - EDGE
-      SecurityPolicy: TLS_1_2
-      CertificateArn:
-        Ref: EdgeCertificateArn
-
-  ApiPublicBaseMapping:
-    Type: AWS::ApiGateway::BasePathMapping
-    Properties:
-      DomainName:
-        Ref: ApiGatewayDomainName
-      RestApiId:
-        Ref: ApiPublicGoLambdaGateway
-      Stage:
-        Ref: ApiPublicGoLambdaGateway.Stage
-
-  ApiInvokeAuthPermission:
-    Type: 'AWS::Lambda::Permission'
-    Properties:
-      FunctionName: !Ref AuthorizerARN
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiPublicGoLambdaGateway}/*/*/*"
+          Ref: ApiPrivateName
 
   ApiInvokeLambdaPermission:
     Type: 'AWS::Lambda::Permission'
@@ -315,46 +279,12 @@ Resources:
       FunctionName: !Ref LambdaFunctionArn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiPublicGoLambdaGateway}/*/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiPrivateGateway}/*/*/*"
 
   WafAssociation:
     Type: AWS::WAFv2::WebACLAssociation
     Properties:
       ResourceArn:
-        Fn::Sub: arn:aws:apigateway:${AWS::Region}::/restapis/${ApiPublicGoLambdaGateway}/stages/${ApiPublicGoLambdaGateway.Stage}
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}::/restapis/${ApiPrivateGateway}/stages/${ApiPrivateGateway.Stage}
       WebACLArn:
         Ref: WafaclArn
-
-  ApiMtlsCustomDomainName:
-    Type: AWS::ApiGateway::DomainName
-    Properties:
-      DomainName:
-        Ref: ApiGatewayMltsDomainName
-      EndpointConfiguration:
-        Types:
-        - REGIONAL
-      SecurityPolicy: TLS_1_2
-      RegionalCertificateArn:
-        Ref: RegionalCertificateArn
-      MutualTlsAuthentication:
-        TruststoreUri:
-          Ref: TruststoreUri
-        TruststoreVersion:
-          Ref: TruststoreVersion
-
-  ApiMtlsPublicBaseMapping:
-    Type: AWS::ApiGateway::BasePathMapping
-    Properties:
-      DomainName:
-        Ref: ApiGatewayMltsDomainName
-      RestApiId:
-        Ref: ApiPublicGoLambdaGateway
-      Stage:
-        Ref: ApiPublicGoLambdaGateway.Stage
-
-Outputs:
-  ApiPublicGoLambdaGateway:
-    Value:
-      Ref: ApiPublicGoLambdaGateway
-    Export:
-      Name: ApiPublicGoLambdaGateway

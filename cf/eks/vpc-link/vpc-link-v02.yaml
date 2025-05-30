@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template to create vpc-link v2.0 07/04/25
+
+Parameters:
+  Version:
+    Type: String
+    Default: 1.0
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  Name:
+    Description: Name this Vpc Link.
+    Type: String
+  LoadBalancerArn:
+    Description: Load balancer ARN.  
+    Type: String
+  Application:
+    Type: String
+    Default: arch-eks-01-02
+  Component:
+    Type: String
+    Default: vpc-link
+  PciClassification:
+    Type: String
+    Default: no-pci
+  Owner:
+    Type: String
+    Default: architecture
+    
+Resources:
+  VpcLinkNLB03:
+    Type: AWS::ApiGateway::VpcLink
+    Properties: 
+      Name: !Ref Name
+      TargetArns: 
+        - !Ref LoadBalancerArn
+      Description: !Join
+        - ' '
+        - - Vpc Link for integration NLB 
+          - !Ref Name  
+      Tags:
+        -
+          Key: env
+          Value: !Ref Env
+        -
+          Key: stack
+          Value: !Sub ${AWS::StackName}
+        -
+          Key: owner
+          Value: !Ref Owner
+        -
+          Key: application
+          Value: !Ref Application
+        -
+          Key: component
+          Value: !Ref Component
+        -
+          Key: pci_classification
+          Value: !Ref PciClassification
+
+Outputs:
+  VpcLinkId:
+    Description: Id the VpcLink
+    Value: !Ref VpcLinkNLB03
+    Export:
+      Name: !Sub VpcLinkId${Name}
