@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ElastiCache Redis/Valkey-Compatible CacheCluster Example
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  ClusterName:
+    Description: The cache cluster name
+    Type: String
+    MinLength: '3'
+    MaxLength: '30'
+    Default: arch-valkey
+  CacheNodeType:
+    Type: String
+    Description: Node type for cache cluster
+    Default: cache.t4g.micro
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t3.micro
+      - cache.t4g.micro
+      - cache.t3.small
+      - cache.t3.medium
+  EngineVersion:
+    Description: Engin version
+    Type: String
+    Default: 8.0
+    AllowedValues:
+      - 8.0
+  PlatformName:
+    Type: String
+    Default: architecture
+  ApplicationName:
+    Type: String
+  OwnerName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: architecture
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  BusinessUnitName:
+    Type: String
+    Default: global
+
+Mappings:
+  network:
+    dev:
+      VpcId: vpc-0df31a6e2d113d8b7
+      VpcCidr: 10.214.0.0/16
+      SubnetAZA: subnet-0ca2d45be9d6ab5bc
+      SubnetAZB: subnet-0b2b57acbb1da0623
+      SubnetAZC: subnet-05d3e7f4611c12a23
+    hml:
+      VpcId: vpc-053bf362926211174
+      VpcCidr: 10.213.0.0/16
+      SubnetAZA: subnet-0fb3b86a8657a696f
+      SubnetAZB: subnet-0fb6727ed0041b799
+      SubnetAZC: subnet-0c45c1b6d9ba2cfc5
+    prd: #prd-non-pci
+      VpcId: vpc-05583dab4737e64fd
+      VpcCidr: 10.197.128.0/17
+      SubnetAZA: subnet-0a0c6c1b76845ca8a
+      SubnetAZB: subnet-0d2dc2da1fb208470
+      SubnetAZC: subnet-0446d425f47765e5b
+
+Conditions:
+  isPrd: !Equals [ !Ref Env, prd ]
+
+Resources:
+
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for ElastiCache
+      CacheSubnetGroupName: sub-group-valkey-01
+      SubnetIds:
+        - !FindInMap [ network, !Ref Env, SubnetAZA ]
+        - !FindInMap [ network, !Ref Env, SubnetAZB ]
+        - !FindInMap [ network, !Ref Env, SubnetAZC ]
+
+  ElastiCacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache Valkey-01
+      VpcId: !FindInMap [ network, !Ref Env, VpcId ]
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.214.0.0/16
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.255.128.0/19
+
+  ValkeyUserAdmin:
+    Type: AWS::ElastiCache::User
+    Properties:
+      UserId: admin
+      UserName: admin
+      Engine: valkey
+      Passwords:
+        - MyCachePassword123!
+      AccessString: "on +@all ~*"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: resource
+          Value: elasticache_user
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
+
+  ValkeyUser01:
+    Type: AWS::ElastiCache::User
+    Properties:
+      UserId: user-01
+      UserName: user-01
+      Engine: valkey
+      Passwords:
+        - MyCachePassword123!
+      AccessString: "on +@all ~*"
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: resource
+          Value: elasticache_user
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+
+  ValkeyUserGroup:
+    Type: AWS::ElastiCache::UserGroup
+    Properties:
+      Engine: valkey
+      UserGroupId: valkey-user-group-01
+      UserIds:
+        - !Ref ValkeyUserAdmin
+        - !Ref ValkeyUser01
+
+  ValkeyCacheCluster:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      AutomaticFailoverEnabled: !If [ isPrd, true, false ]
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      Engine: valkey
+      EngineVersion: !Ref EngineVersion
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheClusters: 1
+      MultiAZEnabled: !If [ isPrd, true, false ]
+      Port: 6379
+      PreferredMaintenanceWindow: sun:22:00-sun:23:00
+      ReplicationGroupDescription: !Sub ReplicationGroup for ${ClusterName}
+      ReplicationGroupId: !Sub ${ClusterName}
+      SecurityGroupIds:
+        - !Ref ElastiCacheSecurityGroup
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: 03:00-05:00
+      TransitEncryptionEnabled: false
+      AtRestEncryptionEnabled: false
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: resource
+          Value: elasticache_valkey
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+        - Key: owner
+          Value: !Ref OwnerName
