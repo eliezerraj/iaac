@@ -39,6 +39,7 @@ Parameters:
     Default: architecture
   ApplicationName:
     Type: String
+    Default: arch-valkey
   OwnerName:
     Type: String
     Default: architecture
@@ -86,7 +87,7 @@ Resources:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
       Description: Subnet group for ElastiCache
-      CacheSubnetGroupName: sub-group-valkey-01
+      CacheSubnetGroupName: sub-group-valkey-02
       SubnetIds:
         - !FindInMap [ network, !Ref Env, SubnetAZA ]
         - !FindInMap [ network, !Ref Env, SubnetAZB ]
@@ -110,8 +111,8 @@ Resources:
   ValkeyUserAdmin:
     Type: AWS::ElastiCache::User
     Properties:
-      UserId: admin
-      UserName: admin
+      UserId: admin-02
+      UserName: admin-02
       Engine: valkey
       Passwords:
         - MyCachePassword123!
@@ -135,8 +136,8 @@ Resources:
   ValkeyUser01:
     Type: AWS::ElastiCache::User
     Properties:
-      UserId: user-01
-      UserName: user-01
+      UserId: user-02
+      UserName: user-02
       Engine: valkey
       Passwords:
         - MyCachePassword123!
@@ -160,7 +161,7 @@ Resources:
     Type: AWS::ElastiCache::UserGroup
     Properties:
       Engine: valkey
-      UserGroupId: valkey-user-group-01
+      UserGroupId: valkey-user-group-02
       UserIds:
         - !Ref ValkeyUserAdmin
         - !Ref ValkeyUser01
@@ -183,9 +184,11 @@ Resources:
         - !Ref ElastiCacheSecurityGroup
       SnapshotRetentionLimit: 7
       SnapshotWindow: 03:00-05:00
-      TransitEncryptionEnabled: false
-      AtRestEncryptionEnabled: false
+      TransitEncryptionEnabled: true
+      AtRestEncryptionEnabled: true
       AutoMinorVersionUpgrade: true
+      UserGroupIds:
+        - !Ref ValkeyUserGroup
       Tags:
         - Key: env
           Value: !Ref Env
