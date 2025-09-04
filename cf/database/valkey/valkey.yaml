@@ -9,7 +9,7 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues:
-      - dev
+      - devA
       - hml
       - prd
   ClusterName:
@@ -17,7 +17,7 @@ Parameters:
     Type: String
     MinLength: '3'
     MaxLength: '30'
-    Default: arch-valkey
+    Default: arch-valkeyA
   CacheNodeType:
     Type: String
     Description: Node type for cache cluster

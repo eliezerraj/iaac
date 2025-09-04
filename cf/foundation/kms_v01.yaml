@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create KMS template 11/08/2025
+
+Parameters:
+  K8ServiceAccount:
+    Type: String
+    Default: arn:aws:iam::908671954593:role/OIDCRoleGoAccount
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  PlatformName:
+    Type: String
+    Default: architecture
+  ApplicationName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: kms-parameter-store
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  Owner:
+    Type: String
+    Default: architecture
+
+Resources:
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      EnableKeyRotation: true
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      Tags:
+        - Key: env
+          Value: !Ref Env
+        - Key: stack
+          Value: !Sub ${AWS::StackName}
+        - Key: name
+          Value: !Ref ComponentName
+        - Key: resource
+          Value: KMS
+        - Key: business_unit
+          Value: !Ref BusinessUnitName
+        - Key: platform
+          Value: !Ref PlatformName
+        - Key: application
+          Value: !Ref ApplicationName
+        - Key: component
+          Value: !Ref ComponentName
+        - Key: owner
+          Value: !Ref Owner
+        - Key: pci_classification
+          Value: !Ref PciClassificationName
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: kms-parameter-store
+        Statement:
+          - Sid: Allows admin of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: ["kms:*"]
+            Resource: "*"
+          - Sid: Allow use of the key from EKS workloads
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Ref K8ServiceAccount
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+
+  KMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/kms-parameter-store
+      TargetKeyId: !Ref KMSKey

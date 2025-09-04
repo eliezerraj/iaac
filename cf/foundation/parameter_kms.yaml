@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Parameter template v1.0 11/08/2025
+
+Parameters:
+  Name:
+    Type: String
+    Default: /rds/rds-db-arch-01
+  ParameterValue:
+    Type: String
+    Default: "admin"
+  KmsKeyId:
+    Type: String
+    Default: "arn:aws:kms:us-east-2:908671954593:key/5056fe6f-1220-4d34-925a-c5b566149cd1"
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  BusinessUnitName:
+    Type: String
+    Default: architecture
+  PlatformName:
+    Type: String
+    Default: architecture
+  ApplicationName:
+    Type: String
+    Default: architecture
+  ComponentName:
+    Type: String
+    Default: parameter-store
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+  Owner:
+    Type: String
+    Default: architecture
+
+Resources:
+  RDSParameterStore:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Ref Name
+      Description: SSM Parameter for Secret Key
+      Value: !Ref ParameterValue
+      Type: "SecureString"
+      KeyId: "arn:aws:kms:us-east-2:908671954593:key/5056fe6f-1220-4d34-925a-c5b566149cd1"
+      Tier: Advanced
+      Tags:
+        env: !Ref Env
+        stack: !Sub ${AWS::StackName}
+        name: !Ref Name
+        resource: parameter_store
+        component: !Ref ComponentName
+        business_unit: !Ref BusinessUnitName
+        platform: !Ref PlatformName
+        application: !Ref ApplicationName
+        owner: !Ref Owner
+        pci_classification: !Ref PciClassificationName
+
+Outputs:
+  ParameterName:
+    Value: !Ref RDSParameterStore
+    Description: Name of the SSM Parameter

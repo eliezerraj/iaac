@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Role AWS ResilienceHub.
+
+Parameters:
+  RoleName: 
+    Type: String
+    Default: Banking-ResilienceHub-Role
+  ManagedPolicyParameterOne:
+    Description: Inform policy ARN (opcional)
+    Type: String 
+    Default: arn:aws:iam::aws:policy/AWSResilienceHubAsssessmentExecutionPolicy
+  component:
+    Description:    Please specify the Component. Used for tagging
+    Type:           String
+    Default:        Role
+  owner:
+    Description:    Please specify the Owner. Used for tagging  
+    Type:           String
+    Default:        architecture 
+  platform:
+    Description:    Please specify the Plataform
+    Type:           String
+    Default:        dockone 
+
+Conditions:
+  IsManagedPolicyParameterOne:    !Not [!Equals [ !Ref ManagedPolicyParameterOne, "" ]]
+
+Resources:
+  AWSFisRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: resiliencehub.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !If [ IsManagedPolicyParameterOne, !Ref ManagedPolicyParameterOne, !Ref 'AWS::NoValue' ]
+      Tags:
+        - Key:    stack
+          Value:  !Sub '${AWS::StackName}'
+        - Key:    owner
+          Value:  !Ref owner
+        - Key:    platform
+          Value:  !Ref platform
+        - Key:    component
+          Value:  !Ref component          
+
+Outputs:
+  AWSFisRole:
+    Value: !GetAtt 'AWSFisRole.Arn'

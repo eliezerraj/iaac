@@ -7,10 +7,8 @@ metadata:
     helm.sh/hook: post-install, post-upgrade
 spec:
   amiSelectorTerms:
-      - id: ami-01face754fdc60485 #ohio AL2 (Amazon Linux 2 ARM)
-      - id: ami-016e80ea1d0bc081f #sp AL2 (Amazon Linux 2 ARM)
-      # - alias: al2023@v20250410 AL2023 (intel X86_64)
-  amiFamily: AL2 # AL2 (Amazon Linux 2 ARM) or AL2023 (intel X86_64)
+    - alias: al2023@v20250410 # AL2023 (intel X86_64)
+  amiFamily: AL2023 #AL2023 (intel X86_64)
   instanceProfile: KarpenterNodeInstanceProfile-arch-eks-01-02 # this IAM Role needs be set in aws-auth configmap.
   subnetSelectorTerms:
     - tags:

@@ -51,7 +51,7 @@ spec:
         - key: karpenter.k8s.aws/instance-size
           operator: In
           values:
-            - nano
+            - micro
             - small
             - medium
         - key: topology.kubernetes.io/zone
